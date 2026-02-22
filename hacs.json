@@ -1,6 +1,5 @@
 {
   "name": "LANCOM Management Cloud",
-  "filename": "lancom_lmc.zip",
   "render_readme": true,
   "homeassistant": "2024.1.0"
 }
