@@ -14,8 +14,6 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN, MANUFACTURER
 from .coordinator import LancomCoordinator
 
-ONLINE_STATES = {"connected", "online", "up"}
-
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -46,17 +44,21 @@ class LancomDeviceOnlineSensor(CoordinatorEntity[LancomCoordinator], BinarySenso
         return self.coordinator.data["devices"].get(self._device_id, {})
 
     @property
+    def _status(self) -> dict:
+        return self._device.get("status", {})
+
+    @property
     def is_on(self) -> bool:
-        state = self._device.get("connectionState") or self._device.get("state") or ""
-        return str(state).lower() in ONLINE_STATES
+        return self._status.get("heartbeatState", "").upper() == "ACTIVE"
 
     @property
     def device_info(self) -> DeviceInfo:
-        device = self._device
+        status = self._status
         return DeviceInfo(
             identifiers={(DOMAIN, self._device_id)},
-            name=device.get("name", self._device_id),
+            name=status.get("name", self._device_id),
             manufacturer=MANUFACTURER,
-            model=device.get("type") or device.get("model") or device.get("deviceType"),
-            sw_version=device.get("firmwareVersion"),
+            model=status.get("model"),
+            sw_version=status.get("fwLabel"),
+            serial_number=status.get("serial"),
         )

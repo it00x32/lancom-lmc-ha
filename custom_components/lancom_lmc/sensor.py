@@ -57,14 +57,14 @@ DEVICE_SENSORS: tuple[DeviceSensorDescription, ...] = (
         name="Firmware Version",
         icon="mdi:package-up",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_key="firmwareVersion",
+        device_key="fwLabel",
     ),
     DeviceSensorDescription(
         key="device_model",
         name="Model",
         icon="mdi:router",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_key="type",
+        device_key="model",
     ),
     DeviceSensorDescription(
         key="site",
@@ -78,14 +78,14 @@ DEVICE_SENSORS: tuple[DeviceSensorDescription, ...] = (
         name="Serial Number",
         icon="mdi:barcode",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_key="serialNumber",
+        device_key="serial",
     ),
     DeviceSensorDescription(
         key="ip_address",
         name="IP Address",
         icon="mdi:ip-network",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_key="ipAddress",
+        device_key="ip",
     ),
 )
 
@@ -167,24 +167,28 @@ class LancomDeviceSensor(CoordinatorEntity[LancomCoordinator], SensorEntity):
         return self.coordinator.data["devices"].get(self._device_id, {})
 
     @property
+    def _status(self) -> dict:
+        return self._device.get("status", {})
+
+    @property
     def native_value(self) -> Any:
-        value = self._device.get(self.entity_description.device_key)
-        # Fallback for alternative field names
-        if value is None and self.entity_description.device_key == "type":
-            value = self._device.get("model") or self._device.get("deviceType")
-        if value is None and self.entity_description.device_key == "siteName":
-            value = self._device.get("site", {}).get("name") if isinstance(self._device.get("site"), dict) else None
-        return value
+        key = self.entity_description.device_key
+        # Most fields are nested under status; siteName is top-level
+        status = self._status
+        if key in status:
+            return status[key]
+        return self._device.get(key)
 
     @property
     def device_info(self) -> DeviceInfo:
-        device = self._device
+        status = self._status
         return DeviceInfo(
             identifiers={(DOMAIN, self._device_id)},
-            name=device.get("name", self._device_id),
+            name=status.get("name", self._device_id),
             manufacturer=MANUFACTURER,
-            model=device.get("type") or device.get("model") or device.get("deviceType"),
-            sw_version=device.get("firmwareVersion"),
+            model=status.get("model"),
+            sw_version=status.get("fwLabel"),
+            serial_number=status.get("serial"),
         )
 
 
@@ -223,11 +227,12 @@ class LancomWanSensor(CoordinatorEntity[LancomCoordinator], SensorEntity):
 
     @property
     def device_info(self) -> DeviceInfo:
-        device = self._device
+        status = self._device.get("status", {})
         return DeviceInfo(
             identifiers={(DOMAIN, self._device_id)},
-            name=device.get("name", self._device_id),
+            name=status.get("name", self._device_id),
             manufacturer=MANUFACTURER,
-            model=device.get("type") or device.get("model"),
-            sw_version=device.get("firmwareVersion"),
+            model=status.get("model"),
+            sw_version=status.get("fwLabel"),
+            serial_number=status.get("serial"),
         )
