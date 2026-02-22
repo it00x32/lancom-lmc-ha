@@ -27,19 +27,19 @@ ACCOUNT_SENSORS: tuple[AccountSensorDescription, ...] = (
         key="total_devices",
         name="Total Devices",
         icon="mdi:router-network",
-        stat_key="totalDevices",
+        stat_key="heartbeatState._total",
     ),
     AccountSensorDescription(
         key="online_devices",
         name="Online Devices",
         icon="mdi:router-wireless",
-        stat_key="onlineDevices",
+        stat_key="heartbeatState.active",
     ),
     AccountSensorDescription(
         key="offline_devices",
         name="Offline Devices",
         icon="mdi:router-wireless-off",
-        stat_key="offlineDevices",
+        stat_key="heartbeatState.inactive",
     ),
 )
 
@@ -133,8 +133,12 @@ class LancomAccountSensor(CoordinatorEntity[LancomCoordinator], SensorEntity):
 
     @property
     def native_value(self) -> Any:
-        stats = self.coordinator.data.get("statistics", {})
-        return stats.get(self.entity_description.stat_key)
+        val = self.coordinator.data.get("statistics", {})
+        for key in self.entity_description.stat_key.split("."):
+            if not isinstance(val, dict):
+                return None
+            val = val.get(key)
+        return val
 
     @property
     def device_info(self) -> DeviceInfo:
