@@ -6,7 +6,8 @@
         "description": "Gib deine LMC API-Zugangsdaten ein. Einen API-Key kannst du unter **Mein Profil → API-Keys** im LMC-Portal erstellen.",
         "data": {
           "api_key": "API-Key",
-          "account_id": "Account-ID"
+          "account_id": "Account-ID",
+          "update_interval": "Aktualisierungsintervall (Minuten)"
         }
       }
     },
@@ -17,6 +18,16 @@
     },
     "abort": {
       "already_configured": "Dieser Account ist bereits konfiguriert"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Einstellungen",
+        "data": {
+          "update_interval": "Aktualisierungsintervall (Minuten)"
+        }
+      }
     }
   },
   "services": {

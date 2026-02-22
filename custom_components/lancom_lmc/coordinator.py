@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import LancomApiClient, LancomApiError
-from .const import DOMAIN, UPDATE_INTERVAL
+from .const import DOMAIN, DEFAULT_UPDATE_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -16,12 +16,12 @@ _LOGGER = logging.getLogger(__name__)
 class LancomCoordinator(DataUpdateCoordinator):
     """Coordinator that fetches all LMC data periodically."""
 
-    def __init__(self, hass: HomeAssistant, client: LancomApiClient) -> None:
+    def __init__(self, hass: HomeAssistant, client: LancomApiClient, update_interval_minutes: int) -> None:
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=UPDATE_INTERVAL),
+            update_interval=timedelta(minutes=update_interval_minutes),
         )
         self.client = client
 
