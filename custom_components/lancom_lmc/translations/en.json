@@ -1,0 +1,34 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "LANCOM Management Cloud",
+        "description": "Enter your LMC API credentials. You can create an API key under **My Profile → API Keys** in the LMC portal.",
+        "data": {
+          "api_key": "API Key",
+          "account_id": "Account ID"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid API key or Account ID",
+      "cannot_connect": "Cannot connect to LANCOM Management Cloud",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This account is already configured"
+    }
+  },
+  "services": {
+    "reboot_device": {
+      "name": "Reboot Device",
+      "description": "Sends a reboot command to a LANCOM device.",
+      "fields": {
+        "device_id": {
+          "name": "Device ID",
+          "description": "The LMC device ID (UUID) of the device to reboot."
+        }
+      }
+    }
+  }
+}

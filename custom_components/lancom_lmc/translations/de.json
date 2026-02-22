@@ -1,0 +1,34 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "LANCOM Management Cloud",
+        "description": "Gib deine LMC API-Zugangsdaten ein. Einen API-Key kannst du unter **Mein Profil → API-Keys** im LMC-Portal erstellen.",
+        "data": {
+          "api_key": "API-Key",
+          "account_id": "Account-ID"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Ungültiger API-Key oder Account-ID",
+      "cannot_connect": "Keine Verbindung zur LANCOM Management Cloud möglich",
+      "unknown": "Unerwarteter Fehler"
+    },
+    "abort": {
+      "already_configured": "Dieser Account ist bereits konfiguriert"
+    }
+  },
+  "services": {
+    "reboot_device": {
+      "name": "Gerät neu starten",
+      "description": "Sendet einen Neustart-Befehl an ein LANCOM-Gerät.",
+      "fields": {
+        "device_id": {
+          "name": "Geräte-ID",
+          "description": "Die LMC-Geräte-ID (UUID) des Geräts, das neu gestartet werden soll."
+        }
+      }
+    }
+  }
+}
