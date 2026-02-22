@@ -31,7 +31,7 @@ class LancomApiClient:
     @property
     def _headers(self) -> dict[str, str]:
         return {
-            "X-API-Key": self._api_key,
+            "Authorization": f"LMC-API-KEY {self._api_key}",
             "Accept": "application/json",
         }
 
