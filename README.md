@@ -17,7 +17,7 @@ Integrates the [LANCOM Management Cloud (LMC)](https://cloud.lancom.de) into Hom
 
 1. Open HACS in Home Assistant
 2. Go to **Integrations → Custom repositories**
-3. Add `https://github.com/your-github-username/lancom-lmc-ha` as **Integration**
+3. Add `https://github.com/it00x32/lancom-lmc-ha` as **Integration**
 4. Search for **LANCOM Management Cloud** and install it
 5. Restart Home Assistant
 
