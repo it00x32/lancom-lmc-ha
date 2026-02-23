@@ -82,8 +82,8 @@ class LancomApiClient:
 
     @staticmethod
     async def get_available_accounts(api_key: str, session: aiohttp.ClientSession) -> list[dict]:
-        """Fetch all accounts accessible with this API key. Returns list of {id, rights}."""
-        url = f"{DEVICES_BASE}/rights/accounts"
+        """Fetch all accounts accessible with this API key via auth service. Returns list of {id, name, ...}."""
+        url = f"{AUTH_BASE}/accounts"
         headers = {"Authorization": f"LMC-API-KEY {api_key}", "Accept": "application/json"}
         try:
             async with session.get(url, headers=headers) as resp:
@@ -216,16 +216,21 @@ class LancomApiClient:
         )
         await self._post(url)
 
-    async def trigger_firmware_update(self, device_id: str) -> None:
-        """Trigger a firmware update for a device using the recommended firmware version."""
+    async def trigger_firmware_update(self, device_id: str, beta: bool = False) -> None:
+        """Trigger a firmware update for a device.
+
+        With beta=False (default) the stable recommended firmware is used.
+        With beta=True the latest available firmware (may be a pre-release) is used.
+        """
         fw_url = f"{DEVICES_BASE}/accounts/{self._account_id}/firmware/update"
-        # Fetch recommended firmware ID for this device
         firmware_data = await self._get(fw_url, params={"deviceIds": [device_id]})
         device_firmware = firmware_data.get(device_id, {}) if isinstance(firmware_data, dict) else {}
-        firmware_id = device_firmware.get("recommendedId")
+        if beta:
+            firmware_id = device_firmware.get("latestId") or device_firmware.get("recommendedId")
+        else:
+            firmware_id = device_firmware.get("recommendedId")
         if not firmware_id:
-            raise LancomApiError(f"No recommended firmware available for device {device_id}")
-        # Trigger the update
+            raise LancomApiError(f"No {'beta' if beta else 'stable'} firmware available for device {device_id}")
         await self._post(fw_url, [{"deviceId": device_id, "firmwareId": firmware_id}])
 
     async def validate(self) -> bool:

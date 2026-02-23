@@ -32,7 +32,11 @@
       "init": {
         "title": "Options",
         "data": {
-          "update_interval": "Update interval (minutes)"
+          "update_interval": "Update interval (minutes)",
+          "beta_firmware": "Use beta firmware for updates"
+        },
+        "data_description": {
+          "beta_firmware": "When enabled, the firmware update button uses the latest available firmware version (may include pre-releases). When disabled, only stable recommended firmware is used."
         }
       }
     }

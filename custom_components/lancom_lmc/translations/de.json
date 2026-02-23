@@ -32,7 +32,11 @@
       "init": {
         "title": "Einstellungen",
         "data": {
-          "update_interval": "Aktualisierungsintervall (Minuten)"
+          "update_interval": "Aktualisierungsintervall (Minuten)",
+          "beta_firmware": "Beta-Firmware für Updates verwenden"
+        },
+        "data_description": {
+          "beta_firmware": "Wenn aktiviert, verwendet der Firmware-Update-Button die neueste verfügbare Firmware (kann Vorab-Versionen enthalten). Wenn deaktiviert, wird nur stabile empfohlene Firmware verwendet."
         }
       }
     }

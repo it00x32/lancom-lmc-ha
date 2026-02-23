@@ -1,7 +1,6 @@
 """Config flow for LANCOM Management Cloud integration."""
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any
 
@@ -23,6 +22,7 @@ from .const import (
     CONF_API_KEY,
     CONF_ACCOUNT_ID,
     CONF_UPDATE_INTERVAL,
+    CONF_BETA_FIRMWARE,
     CONF_NAME,
     DEFAULT_UPDATE_INTERVAL,
     MIN_UPDATE_INTERVAL,
@@ -69,18 +69,9 @@ class LancomConfigFlow(ConfigFlow, domain=DOMAIN):
                     errors["base"] = "no_accounts"
                 elif len(self._accounts) == 1:
                     account_id = self._accounts[0]["id"]
-                    name = await LancomApiClient.get_account_name(
-                        self._api_key, account_id, session
-                    )
+                    name = self._accounts[0].get("name") or account_id
                     return self._create_entry(account_id, name)
                 else:
-                    # Multiple accounts: fetch names in parallel, then let user pick
-                    names = await asyncio.gather(*[
-                        LancomApiClient.get_account_name(self._api_key, a["id"], session)
-                        for a in self._accounts
-                    ])
-                    for i, name in enumerate(names):
-                        self._accounts[i]["name"] = name
                     return await self.async_step_select_account()
 
         schema = vol.Schema(
@@ -165,12 +156,14 @@ class LancomOptionsFlow(OptionsFlow):
         current_interval = self.config_entry.options.get(
             CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL
         )
+        current_beta = self.config_entry.options.get(CONF_BETA_FIRMWARE, False)
 
         schema = vol.Schema(
             {
                 vol.Required(CONF_UPDATE_INTERVAL, default=current_interval): vol.All(
                     int, vol.Range(min=MIN_UPDATE_INTERVAL, max=MAX_UPDATE_INTERVAL)
                 ),
+                vol.Optional(CONF_BETA_FIRMWARE, default=current_beta): bool,
             }
         )
 

@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import LancomApiClient
-from .const import DOMAIN, CONF_API_KEY, CONF_ACCOUNT_ID, CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL
+from .const import DOMAIN, CONF_API_KEY, CONF_ACCOUNT_ID, CONF_UPDATE_INTERVAL, CONF_BETA_FIRMWARE, DEFAULT_UPDATE_INTERVAL
 from .coordinator import LancomCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -26,7 +26,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     update_interval = entry.options.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL)
-    coordinator = LancomCoordinator(hass, client, update_interval)
+    beta_firmware = entry.options.get(CONF_BETA_FIRMWARE, False)
+    coordinator = LancomCoordinator(hass, client, update_interval, beta_firmware)
     await coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator

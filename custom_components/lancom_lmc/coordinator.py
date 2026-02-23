@@ -17,7 +17,7 @@ _LOGGER = logging.getLogger(__name__)
 class LancomCoordinator(DataUpdateCoordinator):
     """Coordinator that fetches all LMC data periodically."""
 
-    def __init__(self, hass: HomeAssistant, client: LancomApiClient, update_interval_minutes: int) -> None:
+    def __init__(self, hass: HomeAssistant, client: LancomApiClient, update_interval_minutes: int, beta_firmware: bool = False) -> None:
         super().__init__(
             hass,
             _LOGGER,
@@ -25,6 +25,7 @@ class LancomCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(minutes=update_interval_minutes),
         )
         self.client = client
+        self.beta_firmware = beta_firmware
 
     async def _async_update_data(self) -> dict:
         """Fetch all data from the LMC API."""

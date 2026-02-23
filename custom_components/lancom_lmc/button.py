@@ -116,8 +116,13 @@ class LancomFirmwareUpdateButton(CoordinatorEntity[LancomCoordinator], ButtonEnt
 
     async def async_press(self) -> None:
         """Trigger firmware update for this device."""
-        await self.coordinator.client.trigger_firmware_update(self._device_id)
-        _LOGGER.info("Firmware update triggered for device %s", self._device_id)
+        await self.coordinator.client.trigger_firmware_update(
+            self._device_id, beta=self.coordinator.beta_firmware
+        )
+        _LOGGER.info(
+            "Firmware update triggered for device %s (beta=%s)",
+            self._device_id, self.coordinator.beta_firmware,
+        )
 
     @property
     def device_info(self) -> DeviceInfo:
