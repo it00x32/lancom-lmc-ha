@@ -8,7 +8,7 @@ from typing import Any
 
 import aiohttp
 
-from .const import AUTH_BASE, DEVICES_BASE, MONITORING_BASE, USERAGENT_BASE
+from .const import AUTH_BASE, CONFIG_BASE, DEVICES_BASE, MONITORING_BASE, USERAGENT_BASE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,10 +55,11 @@ class LancomApiClient:
         except aiohttp.ClientError as err:
             raise LancomApiError(f"Connection error: {err}") from err
 
-    async def _post(self, url: str, payload: Any) -> Any:
+    async def _post(self, url: str, payload: Any = None) -> Any:
         """Perform a POST request."""
         try:
-            async with self._session.post(url, headers=self._headers, json=payload) as resp:
+            kwargs = {"json": payload} if payload is not None else {}
+            async with self._session.post(url, headers=self._headers, **kwargs) as resp:
                 if resp.status == 401:
                     raise LancomAuthError("Invalid API key or account ID")
                 if resp.status not in (200, 202):
@@ -177,14 +178,13 @@ class LancomApiClient:
         await self._post(url, {"deviceIds": [device_id]})
 
     async def trigger_config_rollout(self, device_id: str) -> None:
-        """Trigger a config rollout for a device via the useragent service."""
-        url = f"{USERAGENT_BASE}/accounts/{self._account_id}/actions/config-rollout"
-        payload = {
-            "devices": [{"deviceId": device_id, "orderGroup": 1}],
-            "addDependentCentralSites": False,
-            "requestTestModeEnabled": False,
-        }
-        await self._post(url, payload)
+        """Trigger a config rollout for a single device via cloud-service-config."""
+        url = (
+            f"{CONFIG_BASE}/configdevice/accounts/{self._account_id}"
+            f"/devices/{device_id}/rollout"
+            "?forceRollout=false&addDependentCentralSites=false"
+        )
+        await self._post(url)
 
     async def trigger_firmware_update(self, device_id: str) -> None:
         """Trigger a firmware update for a device using the recommended firmware version."""
