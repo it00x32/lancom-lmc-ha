@@ -39,6 +39,9 @@
   },
   "entity": {
     "button": {
+      "update_api_now": {
+        "name": "API jetzt aktualisieren"
+      },
       "reboot": {
         "name": "Neustart"
       },

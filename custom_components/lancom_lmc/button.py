@@ -10,7 +10,7 @@ from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, MANUFACTURER
+from .const import DOMAIN, MANUFACTURER, CONF_ACCOUNT_ID, CONF_NAME
 from .coordinator import LancomCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,12 +22,44 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: LancomCoordinator = hass.data[DOMAIN][entry.entry_id]
-    entities = []
+    account_id: str = entry.data[CONF_ACCOUNT_ID]
+    account_name: str = entry.data.get(CONF_NAME) or account_id
+
+    entities: list = [LancomRefreshButton(coordinator, account_id, account_name)]
     for device_id in coordinator.data["devices"]:
         entities.append(LancomRebootButton(coordinator, device_id))
         entities.append(LancomFirmwareUpdateButton(coordinator, device_id))
         entities.append(LancomConfigRolloutButton(coordinator, device_id))
     async_add_entities(entities)
+
+
+class LancomRefreshButton(CoordinatorEntity[LancomCoordinator], ButtonEntity):
+    """Button to trigger an immediate data refresh from the LMC API."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Update API now"
+    _attr_icon = "mdi:cloud-refresh"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: LancomCoordinator, account_id: str, account_name: str) -> None:
+        super().__init__(coordinator)
+        self._account_id = account_id
+        self._account_name = account_name
+        self._attr_unique_id = f"lmc_{account_id}_refresh"
+
+    async def async_press(self) -> None:
+        """Trigger an immediate coordinator refresh."""
+        await self.coordinator.async_refresh()
+        _LOGGER.info("Manual API refresh triggered for account %s", self._account_id)
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"account_{self._account_id}")},
+            name=self._account_name,
+            manufacturer=MANUFACTURER,
+            model="LANCOM Management Cloud",
+        )
 
 
 class LancomRebootButton(CoordinatorEntity[LancomCoordinator], ButtonEntity):
