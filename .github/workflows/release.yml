@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read version from manifest
+        id: version
+        run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('custom_components/lancom_lmc/manifest.json'))['version'])")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Determine release type
+        id: type
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if [[ "$TAG" == *"-beta"* ]] || [[ "$TAG" == *"-rc"* ]] || [[ "$TAG" == *"-alpha"* ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+            echo "label=Beta" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+            echo "label=Stable" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create zip for HACS
+        run: |
+          cd custom_components
+          zip -r ../lancom_lmc.zip lancom_lmc/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: ${{ steps.type.outputs.prerelease }}
+          name: "${{ steps.type.outputs.tag }} [${{ steps.type.outputs.label }}]"
+          generate_release_notes: true
+          files: lancom_lmc.zip
