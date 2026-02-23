@@ -3,10 +3,9 @@
     "step": {
       "user": {
         "title": "LANCOM Management Cloud",
-        "description": "Enter your LMC API key. The Account ID is detected automatically.",
+        "description": "Enter your LMC API key. The account name is detected automatically.",
         "data": {
           "api_key": "API Key",
-          "name": "Project Name (optional)",
           "update_interval": "Update Interval (minutes)"
         }
       },

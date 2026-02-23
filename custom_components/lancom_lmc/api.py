@@ -8,7 +8,7 @@ from typing import Any
 
 import aiohttp
 
-from .const import DEVICES_BASE, MONITORING_BASE, USERAGENT_BASE
+from .const import AUTH_BASE, DEVICES_BASE, MONITORING_BASE, USERAGENT_BASE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -83,6 +83,20 @@ class LancomApiClient:
                 return await resp.json()
         except aiohttp.ClientError as err:
             raise LancomApiError(f"Connection error: {err}") from err
+
+    @staticmethod
+    async def get_account_name(api_key: str, account_id: str, session: aiohttp.ClientSession) -> str:
+        """Fetch the account display name from the auth service. Falls back to account_id."""
+        url = f"{AUTH_BASE}/accounts/{account_id}"
+        headers = {"Authorization": f"LMC-API-KEY {api_key}", "Accept": "application/json"}
+        try:
+            async with session.get(url, headers=headers) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return data.get("name") or account_id
+        except Exception:
+            pass
+        return account_id
 
     async def get_devices(self) -> list[dict]:
         """Fetch all devices for the account."""

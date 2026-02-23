@@ -1,6 +1,7 @@
 """Config flow for LANCOM Management Cloud integration."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -34,18 +35,16 @@ class LancomConfigFlow(ConfigFlow, domain=DOMAIN):
         self._api_key: str = ""
         self._accounts: list[dict] = []
         self._update_interval: int = DEFAULT_UPDATE_INTERVAL
-        self._name: str = ""
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Step 1: Ask for API key and optional settings."""
+        """Step 1: Ask for API key and update interval."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
             self._api_key = user_input[CONF_API_KEY].strip()
             self._update_interval = user_input[CONF_UPDATE_INTERVAL]
-            self._name = user_input.get(CONF_NAME, "").strip()
 
             session = async_get_clientsession(self.hass)
             try:
@@ -63,16 +62,24 @@ class LancomConfigFlow(ConfigFlow, domain=DOMAIN):
                 if not self._accounts:
                     errors["base"] = "no_accounts"
                 elif len(self._accounts) == 1:
-                    # Only one account → use it directly
-                    return self._create_entry(self._accounts[0]["id"])
+                    account_id = self._accounts[0]["id"]
+                    name = await LancomApiClient.get_account_name(
+                        self._api_key, account_id, session
+                    )
+                    return self._create_entry(account_id, name)
                 else:
-                    # Multiple accounts → let user choose
+                    # Fetch names for all accounts in parallel
+                    names = await asyncio.gather(*[
+                        LancomApiClient.get_account_name(self._api_key, a["id"], session)
+                        for a in self._accounts
+                    ])
+                    for i, name in enumerate(names):
+                        self._accounts[i]["name"] = name
                     return await self.async_step_select_account()
 
         schema = vol.Schema(
             {
                 vol.Required(CONF_API_KEY): str,
-                vol.Optional(CONF_NAME): str,
                 vol.Required(
                     CONF_UPDATE_INTERVAL, default=DEFAULT_UPDATE_INTERVAL
                 ): vol.All(int, vol.Range(min=MIN_UPDATE_INTERVAL, max=MAX_UPDATE_INTERVAL)),
@@ -90,9 +97,14 @@ class LancomConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Step 2 (only if multiple accounts): Let user pick an account."""
         if user_input is not None:
-            return self._create_entry(user_input[CONF_ACCOUNT_ID])
+            account_id = user_input[CONF_ACCOUNT_ID]
+            name = next(
+                (a.get("name", account_id) for a in self._accounts if a["id"] == account_id),
+                account_id,
+            )
+            return self._create_entry(account_id, name)
 
-        account_options = {a["id"]: a["id"] for a in self._accounts}
+        account_options = {a["id"]: a.get("name", a["id"]) for a in self._accounts}
 
         schema = vol.Schema(
             {vol.Required(CONF_ACCOUNT_ID): vol.In(account_options)}
@@ -100,8 +112,7 @@ class LancomConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(step_id="select_account", data_schema=schema)
 
-    def _create_entry(self, account_id: str) -> ConfigFlowResult:
-        name = self._name or account_id
+    def _create_entry(self, account_id: str, name: str) -> ConfigFlowResult:
         self.async_set_unique_id(account_id)
         self._abort_if_unique_id_configured()
         return self.async_create_entry(
