@@ -37,6 +37,19 @@
       }
     }
   },
+  "entity": {
+    "button": {
+      "reboot": {
+        "name": "Neustart"
+      },
+      "firmware_update": {
+        "name": "Firmware-Update"
+      },
+      "config_rollout": {
+        "name": "Konfig-Rollout"
+      }
+    }
+  },
   "services": {
     "reboot_device": {
       "name": "Gerät neu starten",

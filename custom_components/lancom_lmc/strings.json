@@ -37,6 +37,19 @@
       }
     }
   },
+  "entity": {
+    "button": {
+      "reboot": {
+        "name": "Reboot"
+      },
+      "firmware_update": {
+        "name": "Firmware Update"
+      },
+      "config_rollout": {
+        "name": "Config Rollout"
+      }
+    }
+  },
   "services": {
     "reboot_device": {
       "name": "Reboot Device",
