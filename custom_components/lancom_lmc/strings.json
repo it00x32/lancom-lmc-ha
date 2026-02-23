@@ -3,18 +3,25 @@
     "step": {
       "user": {
         "title": "LANCOM Management Cloud",
-        "description": "Enter your LMC API credentials. You can create an API key under **My Profile → API Keys** in the LMC portal.",
+        "description": "Enter your LMC API key. The Account ID is detected automatically.",
         "data": {
           "api_key": "API Key",
-          "account_id": "Account ID",
-          "name": "Projektname (optional)",
-          "update_interval": "Update-Intervall (Minuten)"
+          "name": "Project Name (optional)",
+          "update_interval": "Update Interval (minutes)"
+        }
+      },
+      "select_account": {
+        "title": "Select Account",
+        "description": "Multiple accounts found. Please select one.",
+        "data": {
+          "account_id": "Account"
         }
       }
     },
     "error": {
-      "invalid_auth": "Invalid API key or Account ID",
+      "invalid_auth": "Invalid API key",
       "cannot_connect": "Cannot connect to LANCOM Management Cloud",
+      "no_accounts": "No accounts found for this API key",
       "unknown": "Unexpected error"
     },
     "abort": {

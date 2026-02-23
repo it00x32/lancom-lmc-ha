@@ -30,25 +30,28 @@ class LancomConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def __init__(self) -> None:
+        self._api_key: str = ""
+        self._accounts: list[dict] = []
+        self._update_interval: int = DEFAULT_UPDATE_INTERVAL
+        self._name: str = ""
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
+        """Step 1: Ask for API key and optional settings."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            api_key = user_input[CONF_API_KEY].strip()
-            account_id = user_input[CONF_ACCOUNT_ID].strip()
-            account_name = user_input.get(CONF_NAME, "").strip() or account_id
-            update_interval = user_input[CONF_UPDATE_INTERVAL]
-
-            await self.async_set_unique_id(account_id)
-            self._abort_if_unique_id_configured()
+            self._api_key = user_input[CONF_API_KEY].strip()
+            self._update_interval = user_input[CONF_UPDATE_INTERVAL]
+            self._name = user_input.get(CONF_NAME, "").strip()
 
             session = async_get_clientsession(self.hass)
-            client = LancomApiClient(api_key, account_id, session)
-
             try:
-                await client.validate()
+                self._accounts = await LancomApiClient.get_available_accounts(
+                    self._api_key, session
+                )
             except LancomAuthError:
                 errors["base"] = "invalid_auth"
             except LancomApiError:
@@ -57,22 +60,18 @@ class LancomConfigFlow(ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected error during config flow")
                 errors["base"] = "unknown"
             else:
-                return self.async_create_entry(
-                    title=account_name,
-                    data={
-                        CONF_API_KEY: api_key,
-                        CONF_ACCOUNT_ID: account_id,
-                        CONF_NAME: account_name,
-                    },
-                    options={
-                        CONF_UPDATE_INTERVAL: update_interval,
-                    },
-                )
+                if not self._accounts:
+                    errors["base"] = "no_accounts"
+                elif len(self._accounts) == 1:
+                    # Only one account → use it directly
+                    return self._create_entry(self._accounts[0]["id"])
+                else:
+                    # Multiple accounts → let user choose
+                    return await self.async_step_select_account()
 
         schema = vol.Schema(
             {
                 vol.Required(CONF_API_KEY): str,
-                vol.Required(CONF_ACCOUNT_ID): str,
                 vol.Optional(CONF_NAME): str,
                 vol.Required(
                     CONF_UPDATE_INTERVAL, default=DEFAULT_UPDATE_INTERVAL
@@ -84,6 +83,37 @@ class LancomConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=schema,
             errors=errors,
+        )
+
+    async def async_step_select_account(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Step 2 (only if multiple accounts): Let user pick an account."""
+        if user_input is not None:
+            return self._create_entry(user_input[CONF_ACCOUNT_ID])
+
+        account_options = {a["id"]: a["id"] for a in self._accounts}
+
+        schema = vol.Schema(
+            {vol.Required(CONF_ACCOUNT_ID): vol.In(account_options)}
+        )
+
+        return self.async_show_form(step_id="select_account", data_schema=schema)
+
+    def _create_entry(self, account_id: str) -> ConfigFlowResult:
+        name = self._name or account_id
+        self.async_set_unique_id(account_id)
+        self._abort_if_unique_id_configured()
+        return self.async_create_entry(
+            title=name,
+            data={
+                CONF_API_KEY: self._api_key,
+                CONF_ACCOUNT_ID: account_id,
+                CONF_NAME: name,
+            },
+            options={
+                CONF_UPDATE_INTERVAL: self._update_interval,
+            },
         )
 
     @staticmethod

@@ -69,6 +69,21 @@ class LancomApiClient:
         except aiohttp.ClientError as err:
             raise LancomApiError(f"Connection error: {err}") from err
 
+    @staticmethod
+    async def get_available_accounts(api_key: str, session: aiohttp.ClientSession) -> list[dict]:
+        """Fetch all accounts accessible with this API key. Returns list of {id, rights}."""
+        url = f"{DEVICES_BASE}/rights/accounts"
+        headers = {"Authorization": f"LMC-API-KEY {api_key}", "Accept": "application/json"}
+        try:
+            async with session.get(url, headers=headers) as resp:
+                if resp.status == 401:
+                    raise LancomAuthError("Invalid API key")
+                if resp.status != 200:
+                    raise LancomApiError(f"API error {resp.status}")
+                return await resp.json()
+        except aiohttp.ClientError as err:
+            raise LancomApiError(f"Connection error: {err}") from err
+
     async def get_devices(self) -> list[dict]:
         """Fetch all devices for the account."""
         url = f"{DEVICES_BASE}/accounts/{self._account_id}/devices"
