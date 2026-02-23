@@ -182,7 +182,7 @@ class LancomApiClient:
     async def reboot_device(self, device_id: str) -> None:
         """Send reboot command to a device."""
         url = f"{DEVICES_BASE}/accounts/{self._account_id}/actions/reboot"
-        await self._post(url, {"deviceIds": [device_id]})
+        await self._post(url, [device_id])
 
     async def trigger_config_rollout(self, device_id: str) -> None:
         """Trigger a config rollout for a single device via cloud-service-config."""
