@@ -145,9 +145,8 @@ async def async_setup_entry(
 
         entities.append(LancomWanSensor(coordinator, device_id))
 
-        # WLAN client sensor only for Access Points
-        if device.get("status", {}).get("type") == "ACCESS_POINT":
-            entities.append(LancomWlanClientSensor(coordinator, device_id))
+        # WLAN client sensor for all devices (routers with built-in WLAN also have clients)
+        entities.append(LancomWlanClientSensor(coordinator, device_id))
 
     async_add_entities(entities)
 
