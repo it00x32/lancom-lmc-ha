@@ -171,22 +171,20 @@ class LancomApiClient:
 
     @staticmethod
     def _parse_wlan_count(data: Any) -> int:
-        """Extract station count from various wlan_info_json response shapes."""
-        if data is None:
+        """Extract station count from wlan_info_json response.
+
+        Response format:
+          {"base": ..., "items": {"stations": {"keys": [...], "values": [[client, ...], ...]}}}
+        Empty when no clients: {"base": ..., "items": {}}
+        """
+        if not isinstance(data, dict):
             return 0
-        if isinstance(data, (int, float)):
-            return int(data)
-        if isinstance(data, list) and data:
-            last = data[-1]
-            for key in ("stations", "value", "v", "count"):
-                if key in last:
-                    return int(last[key])
-        if isinstance(data, dict):
-            for key in ("stations", "value", "v", "count"):
-                if key in data:
-                    return int(data[key])
-            if "data" in data and isinstance(data["data"], list):
-                return LancomApiClient._parse_wlan_count(data["data"])
+        try:
+            vals = data.get("items", {}).get("stations", {}).get("values", [])
+            if vals and isinstance(vals[0], list):
+                return len(vals[0])
+        except (AttributeError, TypeError):
+            pass
         return 0
 
     async def get_vpn_connections(self, device_ids: list[str] | None = None) -> list[dict]:
