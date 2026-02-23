@@ -10,6 +10,12 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult, OptionsFlow, ConfigEntry
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import (
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+    SelectOptionDict,
+)
 
 from .api import LancomApiClient, LancomAuthError, LancomApiError
 from .const import (
@@ -68,7 +74,7 @@ class LancomConfigFlow(ConfigFlow, domain=DOMAIN):
                     )
                     return self._create_entry(account_id, name)
                 else:
-                    # Fetch names for all accounts in parallel
+                    # Multiple accounts: fetch names in parallel, then let user pick
                     names = await asyncio.gather(*[
                         LancomApiClient.get_account_name(self._api_key, a["id"], session)
                         for a in self._accounts
@@ -104,10 +110,24 @@ class LancomConfigFlow(ConfigFlow, domain=DOMAIN):
             )
             return self._create_entry(account_id, name)
 
-        account_options = {a["id"]: a.get("name", a["id"]) for a in self._accounts}
+        # Build options: label shows "Projektname (uuid)" for clarity
+        options = [
+            SelectOptionDict(
+                value=a["id"],
+                label=f"{a.get('name', a['id'])}  ({a['id'][:8]}…)",
+            )
+            for a in self._accounts
+        ]
 
         schema = vol.Schema(
-            {vol.Required(CONF_ACCOUNT_ID): vol.In(account_options)}
+            {
+                vol.Required(CONF_ACCOUNT_ID): SelectSelector(
+                    SelectSelectorConfig(
+                        options=options,
+                        mode=SelectSelectorMode.LIST,
+                    )
+                )
+            }
         )
 
         return self.async_show_form(step_id="select_account", data_schema=schema)

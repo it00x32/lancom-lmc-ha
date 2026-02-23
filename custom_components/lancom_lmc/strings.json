@@ -11,9 +11,9 @@
       },
       "select_account": {
         "title": "Select Account",
-        "description": "Multiple accounts found. Please select one.",
+        "description": "Your API key has access to multiple accounts. Please select the desired account.",
         "data": {
-          "account_id": "Account"
+          "account_id": "Account / Project"
         }
       }
     },
