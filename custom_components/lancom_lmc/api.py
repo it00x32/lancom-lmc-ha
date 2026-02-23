@@ -66,11 +66,17 @@ class LancomApiClient:
             async with self._session.post(url, headers=self._headers, **kwargs) as resp:
                 if resp.status == 401:
                     raise LancomAuthError("Invalid API key or account ID")
-                if resp.status not in (200, 202):
+                if resp.status == 403:
+                    raise LancomAuthError("Access denied")
+                if resp.status < 200 or resp.status >= 300:
                     raise LancomApiError(f"API error {resp.status}: {await resp.text()}")
-                if resp.content_length:
-                    return await resp.json()
-                return {}
+                text = await resp.text()
+                if not text.strip():
+                    return {}
+                try:
+                    return json.loads(text)
+                except json.JSONDecodeError:
+                    return {}
         except aiohttp.ClientError as err:
             raise LancomApiError(f"Connection error: {err}") from err
 
