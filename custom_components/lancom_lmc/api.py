@@ -33,7 +33,7 @@ class LancomApiClient:
     def _headers(self) -> dict[str, str]:
         return {
             "Authorization": f"LMC-API-KEY {self._api_key}",
-            "Accept": "application/json",
+            "Accept": "*/*",
         }
 
     async def _get(self, url: str, params: dict | None = None) -> Any:
@@ -152,17 +152,42 @@ class LancomApiClient:
             _LOGGER.debug("WAN interface data unavailable: %s", err)
             return []
 
-    async def get_wlan_stations(self) -> list[dict]:
-        """Fetch currently connected WLAN clients from monitoring (all devices)."""
-        url = f"{MONITORING_BASE}/api/{self._account_id}/tables/wlan-station"
-        try:
-            result = await self._get(url)
-            rows: list[dict] = result.get("data", []) if isinstance(result, dict) else (result if isinstance(result, list) else [])
-            # Only count stations that are currently active/connected
-            return [r for r in rows if r.get("active") is True]
-        except Exception as err:
-            _LOGGER.debug("WLAN station data unavailable: %s", err)
-            return []
+    async def get_wlan_counts(self, device_ids: list[str]) -> dict[str, int]:
+        """Fetch connected WLAN client counts per device using the records endpoint."""
+        async def _fetch_one(device_id: str) -> tuple[str, int]:
+            url = (
+                f"{MONITORING_BASE}/accounts/{self._account_id}/records/wlan_info_json"
+                f"?group=DEVICE&groupId={device_id}&period=MINUTE1&type=json&name=stations&latest=1"
+            )
+            try:
+                data = await self._get(url)
+                return device_id, self._parse_wlan_count(data)
+            except Exception as err:
+                _LOGGER.debug("WLAN count unavailable for %s: %s", device_id, err)
+                return device_id, 0
+
+        results = await asyncio.gather(*[_fetch_one(did) for did in device_ids])
+        return dict(results)
+
+    @staticmethod
+    def _parse_wlan_count(data: Any) -> int:
+        """Extract station count from various wlan_info_json response shapes."""
+        if data is None:
+            return 0
+        if isinstance(data, (int, float)):
+            return int(data)
+        if isinstance(data, list) and data:
+            last = data[-1]
+            for key in ("stations", "value", "v", "count"):
+                if key in last:
+                    return int(last[key])
+        if isinstance(data, dict):
+            for key in ("stations", "value", "v", "count"):
+                if key in data:
+                    return int(data[key])
+            if "data" in data and isinstance(data["data"], list):
+                return LancomApiClient._parse_wlan_count(data["data"])
+        return 0
 
     async def get_vpn_connections(self, device_ids: list[str] | None = None) -> list[dict]:
         """Fetch VPN connection data from monitoring."""

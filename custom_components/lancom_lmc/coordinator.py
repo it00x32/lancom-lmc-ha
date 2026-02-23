@@ -33,10 +33,10 @@ class LancomCoordinator(DataUpdateCoordinator):
             statistics = await self.client.get_device_statistics()
 
             device_ids = [d["id"] for d in devices if "id" in d]
-            wan_data, vpn_data, wlan_data, config_states = await asyncio.gather(
+            wan_data, vpn_data, wlan_clients_by_device, config_states = await asyncio.gather(
                 self.client.get_wan_interfaces(device_ids[:10]),
                 self.client.get_vpn_connections(device_ids[:10]),
-                self.client.get_wlan_stations(),
+                self.client.get_wlan_counts(device_ids),
                 self.client.get_device_config_states(device_ids),
             )
 
@@ -52,12 +52,6 @@ class LancomCoordinator(DataUpdateCoordinator):
                 did = entry.get("deviceId")
                 if did:
                     vpn_by_device.setdefault(did, []).append(entry)
-
-            wlan_clients_by_device: dict[str, int] = {}
-            for entry in wlan_data:
-                did = entry.get("deviceId")
-                if did:
-                    wlan_clients_by_device[did] = wlan_clients_by_device.get(did, 0) + 1
 
             return {
                 "devices": {d["id"]: d for d in devices if "id" in d},
