@@ -4,6 +4,7 @@
   "codeowners": ["@it00x32"],
   "config_flow": true,
   "documentation": "https://github.com/it00x32/lancom-lmc-ha",
+  "issue_tracker": "https://github.com/it00x32/lancom-lmc-ha/issues",
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "requirements": [],
