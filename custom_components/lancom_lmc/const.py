@@ -14,3 +14,4 @@ MAX_UPDATE_INTERVAL = 1440  # 24 Stunden
 BASE_URL = "https://cloud.lancom.de"
 DEVICES_BASE = f"{BASE_URL}/cloud-service-devices"
 MONITORING_BASE = f"{BASE_URL}/cloud-service-monitoring"
+USERAGENT_BASE = f"{BASE_URL}/cloud-service-useragent"

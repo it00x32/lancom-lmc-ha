@@ -7,7 +7,7 @@ from typing import Any
 
 import aiohttp
 
-from .const import DEVICES_BASE, MONITORING_BASE
+from .const import DEVICES_BASE, MONITORING_BASE, USERAGENT_BASE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -130,6 +130,11 @@ class LancomApiClient:
     async def reboot_device(self, device_id: str) -> None:
         """Send reboot command to a device."""
         url = f"{DEVICES_BASE}/accounts/{self._account_id}/actions/reboot"
+        await self._post(url, {"deviceIds": [device_id]})
+
+    async def trigger_firmware_update(self, device_id: str) -> None:
+        """Trigger a firmware update for a device via the useragent service."""
+        url = f"{USERAGENT_BASE}/accounts/{self._account_id}/actions/firmware-update"
         await self._post(url, {"deviceIds": [device_id]})
 
     async def validate(self) -> bool:
