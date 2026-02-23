@@ -7,7 +7,7 @@ from typing import Any
 
 import aiohttp
 
-from .const import DEVICES_BASE, MONITORING_BASE, USERAGENT_BASE
+from .const import DEVICES_BASE, MONITORING_BASE, USERAGENT_BASE, AUTH_BASE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -67,6 +67,16 @@ class LancomApiClient:
                 return {}
         except aiohttp.ClientError as err:
             raise LancomApiError(f"Connection error: {err}") from err
+
+    async def get_account_name(self) -> str:
+        """Fetch the account name from the auth service."""
+        url = f"{AUTH_BASE}/accounts/{self._account_id}"
+        try:
+            result = await self._get(url)
+            return result.get("name", self._account_id)
+        except LancomApiError as err:
+            _LOGGER.debug("Could not fetch account name: %s", err)
+            return self._account_id
 
     async def get_devices(self) -> list[dict]:
         """Fetch all devices for the account."""

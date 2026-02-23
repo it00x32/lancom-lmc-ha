@@ -177,9 +177,10 @@ class LancomAccountSensor(CoordinatorEntity[LancomCoordinator], SensorEntity):
 
     @property
     def device_info(self) -> DeviceInfo:
+        name = self.coordinator.data.get("account_name") or self._account_id
         return DeviceInfo(
             identifiers={(DOMAIN, f"account_{self._account_id}")},
-            name=f"LMC Account {self._account_id}",
+            name=name,
             manufacturer=MANUFACTURER,
             model="LANCOM Management Cloud",
         )
