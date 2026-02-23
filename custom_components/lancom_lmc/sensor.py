@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
@@ -136,6 +136,7 @@ async def async_setup_entry(
     # Account-level sensors
     for desc in ACCOUNT_SENSORS:
         entities.append(LancomAccountSensor(coordinator, account_id, account_name, desc))
+    entities.append(LancomLastSyncSensor(coordinator, account_id, account_name))
 
     # Per-device sensors
     for device_id, device in coordinator.data["devices"].items():
@@ -177,6 +178,34 @@ class LancomAccountSensor(CoordinatorEntity[LancomCoordinator], SensorEntity):
                 return None
             val = val.get(key)
         return val
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"account_{self._account_id}")},
+            name=self._account_name,
+            manufacturer=MANUFACTURER,
+            model="LANCOM Management Cloud",
+        )
+
+
+class LancomLastSyncSensor(CoordinatorEntity[LancomCoordinator], SensorEntity):
+    """Sensor showing the timestamp of the last successful data sync."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Last Sync"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: LancomCoordinator, account_id: str, account_name: str) -> None:
+        super().__init__(coordinator)
+        self._account_id = account_id
+        self._account_name = account_name
+        self._attr_unique_id = f"lmc_{account_id}_last_sync"
+
+    @property
+    def native_value(self):
+        return self.coordinator.data.get("last_sync")
 
     @property
     def device_info(self) -> DeviceInfo:

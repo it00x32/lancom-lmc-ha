@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -58,6 +58,7 @@ class LancomCoordinator(DataUpdateCoordinator):
             return {
                 "devices": {d["id"]: d for d in devices if "id" in d},
                 "statistics": statistics,
+                "last_sync": datetime.now(timezone.utc),
                 "wan": wan_by_device,
                 "vpn": vpn_by_device,
                 "wlan_clients": wlan_clients_by_device,
