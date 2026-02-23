@@ -16,6 +16,7 @@ from .const import (
     CONF_API_KEY,
     CONF_ACCOUNT_ID,
     CONF_UPDATE_INTERVAL,
+    CONF_NAME,
     DEFAULT_UPDATE_INTERVAL,
     MIN_UPDATE_INTERVAL,
     MAX_UPDATE_INTERVAL,
@@ -37,6 +38,7 @@ class LancomConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             api_key = user_input[CONF_API_KEY].strip()
             account_id = user_input[CONF_ACCOUNT_ID].strip()
+            account_name = user_input.get(CONF_NAME, "").strip() or account_id
             update_interval = user_input[CONF_UPDATE_INTERVAL]
 
             await self.async_set_unique_id(account_id)
@@ -56,10 +58,11 @@ class LancomConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 return self.async_create_entry(
-                    title=f"LMC ({account_id})",
+                    title=account_name,
                     data={
                         CONF_API_KEY: api_key,
                         CONF_ACCOUNT_ID: account_id,
+                        CONF_NAME: account_name,
                     },
                     options={
                         CONF_UPDATE_INTERVAL: update_interval,
@@ -70,6 +73,7 @@ class LancomConfigFlow(ConfigFlow, domain=DOMAIN):
             {
                 vol.Required(CONF_API_KEY): str,
                 vol.Required(CONF_ACCOUNT_ID): str,
+                vol.Optional(CONF_NAME): str,
                 vol.Required(
                     CONF_UPDATE_INTERVAL, default=DEFAULT_UPDATE_INTERVAL
                 ): vol.All(int, vol.Range(min=MIN_UPDATE_INTERVAL, max=MAX_UPDATE_INTERVAL)),

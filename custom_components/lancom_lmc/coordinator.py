@@ -30,7 +30,6 @@ class LancomCoordinator(DataUpdateCoordinator):
         try:
             devices = await self.client.get_devices()
             statistics = await self.client.get_device_statistics()
-            account_name = await self.client.get_account_name()
 
             device_ids = [d["id"] for d in devices if "id" in d]
             wan_data = await self.client.get_wan_interfaces(device_ids[:10])
@@ -59,7 +58,6 @@ class LancomCoordinator(DataUpdateCoordinator):
             return {
                 "devices": {d["id"]: d for d in devices if "id" in d},
                 "statistics": statistics,
-                "account_name": account_name,
                 "wan": wan_by_device,
                 "vpn": vpn_by_device,
                 "wlan_clients": wlan_clients_by_device,

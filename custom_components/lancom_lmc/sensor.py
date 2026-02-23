@@ -11,7 +11,7 @@ from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, MANUFACTURER, CONF_ACCOUNT_ID
+from .const import DOMAIN, MANUFACTURER, CONF_ACCOUNT_ID, CONF_NAME
 from .coordinator import LancomCoordinator
 
 
@@ -129,12 +129,13 @@ async def async_setup_entry(
 ) -> None:
     coordinator: LancomCoordinator = hass.data[DOMAIN][entry.entry_id]
     account_id: str = entry.data[CONF_ACCOUNT_ID]
+    account_name: str = entry.data.get(CONF_NAME) or account_id
 
     entities: list[SensorEntity] = []
 
     # Account-level sensors
     for desc in ACCOUNT_SENSORS:
-        entities.append(LancomAccountSensor(coordinator, account_id, desc))
+        entities.append(LancomAccountSensor(coordinator, account_id, account_name, desc))
 
     # Per-device sensors
     for device_id, device in coordinator.data["devices"].items():
@@ -159,11 +160,13 @@ class LancomAccountSensor(CoordinatorEntity[LancomCoordinator], SensorEntity):
         self,
         coordinator: LancomCoordinator,
         account_id: str,
+        account_name: str,
         description: AccountSensorDescription,
     ) -> None:
         super().__init__(coordinator)
         self.entity_description = description
         self._account_id = account_id
+        self._account_name = account_name
         self._attr_unique_id = f"lmc_{account_id}_{description.key}"
 
     @property
@@ -177,10 +180,9 @@ class LancomAccountSensor(CoordinatorEntity[LancomCoordinator], SensorEntity):
 
     @property
     def device_info(self) -> DeviceInfo:
-        name = self.coordinator.data.get("account_name") or self._account_id
         return DeviceInfo(
             identifiers={(DOMAIN, f"account_{self._account_id}")},
-            name=name,
+            name=self._account_name,
             manufacturer=MANUFACTURER,
             model="LANCOM Management Cloud",
         )
