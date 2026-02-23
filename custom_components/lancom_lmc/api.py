@@ -97,6 +97,21 @@ class LancomApiClient:
             _LOGGER.debug("WAN interface data unavailable: %s", err)
             return []
 
+    async def get_wlan_stations(self, device_ids: list[str] | None = None) -> list[dict]:
+        """Fetch connected WLAN clients from monitoring."""
+        url = f"{MONITORING_BASE}/api/{self._account_id}/tables/wlan-station"
+        params: dict = {}
+        if device_ids:
+            params["deviceId"] = device_ids[:10]
+        try:
+            result = await self._get(url, params=params)
+            if isinstance(result, dict):
+                return result.get("data", [])
+            return result if isinstance(result, list) else []
+        except LancomApiError as err:
+            _LOGGER.debug("WLAN station data unavailable: %s", err)
+            return []
+
     async def get_vpn_connections(self, device_ids: list[str] | None = None) -> list[dict]:
         """Fetch VPN connection data from monitoring."""
         url = f"{MONITORING_BASE}/api/{self._account_id}/tables/vpn-connection"

@@ -34,6 +34,7 @@ class LancomCoordinator(DataUpdateCoordinator):
             device_ids = [d["id"] for d in devices if "id" in d]
             wan_data = await self.client.get_wan_interfaces(device_ids[:10])
             vpn_data = await self.client.get_vpn_connections(device_ids[:10])
+            wlan_data = await self.client.get_wlan_stations(device_ids[:10])
 
             # Index monitoring data by deviceId for quick lookup
             wan_by_device: dict[str, dict] = {}
@@ -48,11 +49,18 @@ class LancomCoordinator(DataUpdateCoordinator):
                 if did:
                     vpn_by_device.setdefault(did, []).append(entry)
 
+            wlan_clients_by_device: dict[str, int] = {}
+            for entry in wlan_data:
+                did = entry.get("deviceId")
+                if did:
+                    wlan_clients_by_device[did] = wlan_clients_by_device.get(did, 0) + 1
+
             return {
                 "devices": {d["id"]: d for d in devices if "id" in d},
                 "statistics": statistics,
                 "wan": wan_by_device,
                 "vpn": vpn_by_device,
+                "wlan_clients": wlan_clients_by_device,
             }
         except LancomApiError as err:
             raise UpdateFailed(f"LMC API error: {err}") from err

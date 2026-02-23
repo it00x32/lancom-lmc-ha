@@ -41,6 +41,24 @@ ACCOUNT_SENSORS: tuple[AccountSensorDescription, ...] = (
         icon="mdi:router-wireless-off",
         stat_key="heartbeatState.inactive",
     ),
+    AccountSensorDescription(
+        key="active_alerts",
+        name="Active Alerts",
+        icon="mdi:bell-alert",
+        stat_key="alertState.active",
+    ),
+    AccountSensorDescription(
+        key="firmware_outdated",
+        name="Firmware Outdated",
+        icon="mdi:package-variant-closed-remove",
+        stat_key="firmwareState.obsolete",
+    ),
+    AccountSensorDescription(
+        key="config_outdated",
+        name="Config Outdated",
+        icon="mdi:cog-sync",
+        stat_key="configState.outdated",
+    ),
 )
 
 
@@ -57,14 +75,14 @@ DEVICE_SENSORS: tuple[DeviceSensorDescription, ...] = (
         name="Firmware Version",
         icon="mdi:package-up",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_key="fwLabel",
+        device_key="status.fwLabel",
     ),
     DeviceSensorDescription(
         key="device_model",
         name="Model",
         icon="mdi:router",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_key="model",
+        device_key="status.model",
     ),
     DeviceSensorDescription(
         key="site",
@@ -78,14 +96,28 @@ DEVICE_SENSORS: tuple[DeviceSensorDescription, ...] = (
         name="Serial Number",
         icon="mdi:barcode",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_key="serial",
+        device_key="status.serial",
     ),
     DeviceSensorDescription(
         key="ip_address",
         name="IP Address",
         icon="mdi:ip-network",
         entity_category=EntityCategory.DIAGNOSTIC,
-        device_key="ip",
+        device_key="status.ip",
+    ),
+    DeviceSensorDescription(
+        key="firmware_state",
+        name="Firmware State",
+        icon="mdi:update",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_key="firmwareState",
+    ),
+    DeviceSensorDescription(
+        key="lifecycle",
+        name="Lifecycle",
+        icon="mdi:calendar-clock",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_key="status.lifecycle.status",
     ),
 )
 
@@ -105,12 +137,15 @@ async def async_setup_entry(
         entities.append(LancomAccountSensor(coordinator, account_id, desc))
 
     # Per-device sensors
-    for device_id in coordinator.data["devices"]:
+    for device_id, device in coordinator.data["devices"].items():
         for desc in DEVICE_SENSORS:
             entities.append(LancomDeviceSensor(coordinator, device_id, desc))
 
-        # WAN sensor if data is available
         entities.append(LancomWanSensor(coordinator, device_id))
+
+        # WLAN client sensor only for Access Points
+        if device.get("status", {}).get("type") == "ACCESS_POINT":
+            entities.append(LancomWlanClientSensor(coordinator, device_id))
 
     async_add_entities(entities)
 
@@ -176,12 +211,12 @@ class LancomDeviceSensor(CoordinatorEntity[LancomCoordinator], SensorEntity):
 
     @property
     def native_value(self) -> Any:
-        key = self.entity_description.device_key
-        # Most fields are nested under status; siteName is top-level
-        status = self._status
-        if key in status:
-            return status[key]
-        return self._device.get(key)
+        val = self._device
+        for key in self.entity_description.device_key.split("."):
+            if not isinstance(val, dict):
+                return None
+            val = val.get(key)
+        return val
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -228,6 +263,40 @@ class LancomWanSensor(CoordinatorEntity[LancomCoordinator], SensorEntity):
         vpn_list = self.coordinator.data["vpn"].get(self._device_id, [])
         attrs["vpn_tunnels"] = len(vpn_list)
         return attrs
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        status = self._device.get("status", {})
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._device_id)},
+            name=status.get("name", self._device_id),
+            manufacturer=MANUFACTURER,
+            model=status.get("model"),
+            sw_version=status.get("fwLabel"),
+            serial_number=status.get("serial"),
+        )
+
+
+class LancomWlanClientSensor(CoordinatorEntity[LancomCoordinator], SensorEntity):
+    """Sensor showing the number of connected WLAN clients for an Access Point."""
+
+    _attr_has_entity_name = True
+    _attr_name = "WLAN Clients"
+    _attr_icon = "mdi:wifi"
+    _attr_native_unit_of_measurement = "clients"
+
+    def __init__(self, coordinator: LancomCoordinator, device_id: str) -> None:
+        super().__init__(coordinator)
+        self._device_id = device_id
+        self._attr_unique_id = f"{device_id}_wlan_clients"
+
+    @property
+    def _device(self) -> dict:
+        return self.coordinator.data["devices"].get(self._device_id, {})
+
+    @property
+    def native_value(self) -> int:
+        return self.coordinator.data["wlan_clients"].get(self._device_id, 0)
 
     @property
     def device_info(self) -> DeviceInfo:
