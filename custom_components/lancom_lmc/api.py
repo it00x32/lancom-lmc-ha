@@ -55,7 +55,7 @@ class LancomApiClient:
         except aiohttp.ClientError as err:
             raise LancomApiError(f"Connection error: {err}") from err
 
-    async def _post(self, url: str, payload: dict) -> Any:
+    async def _post(self, url: str, payload: Any) -> Any:
         """Perform a POST request."""
         try:
             async with self._session.post(url, headers=self._headers, json=payload) as resp:
@@ -165,12 +165,24 @@ class LancomApiClient:
     async def trigger_config_rollout(self, device_id: str) -> None:
         """Trigger a config rollout for a device via the useragent service."""
         url = f"{USERAGENT_BASE}/accounts/{self._account_id}/actions/config-rollout"
-        await self._post(url, {"deviceIds": [device_id]})
+        payload = {
+            "devices": [{"deviceId": device_id, "orderGroup": 1}],
+            "addDependentCentralSites": False,
+            "requestTestModeEnabled": False,
+        }
+        await self._post(url, payload)
 
     async def trigger_firmware_update(self, device_id: str) -> None:
-        """Trigger a firmware update for a device via the useragent service."""
-        url = f"{USERAGENT_BASE}/accounts/{self._account_id}/actions/firmware-update"
-        await self._post(url, {"deviceIds": [device_id]})
+        """Trigger a firmware update for a device using the recommended firmware version."""
+        fw_url = f"{DEVICES_BASE}/accounts/{self._account_id}/firmware/update"
+        # Fetch recommended firmware ID for this device
+        firmware_data = await self._get(fw_url, params={"deviceIds": [device_id]})
+        device_firmware = firmware_data.get(device_id, {}) if isinstance(firmware_data, dict) else {}
+        firmware_id = device_firmware.get("recommendedId")
+        if not firmware_id:
+            raise LancomApiError(f"No recommended firmware available for device {device_id}")
+        # Trigger the update
+        await self._post(fw_url, [{"deviceId": device_id, "firmwareId": firmware_id}])
 
     async def validate(self) -> bool:
         """Validate credentials by fetching device IDs."""
