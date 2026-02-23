@@ -1,6 +1,7 @@
 """Data update coordinator for LANCOM Management Cloud."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -32,9 +33,12 @@ class LancomCoordinator(DataUpdateCoordinator):
             statistics = await self.client.get_device_statistics()
 
             device_ids = [d["id"] for d in devices if "id" in d]
-            wan_data = await self.client.get_wan_interfaces(device_ids[:10])
-            vpn_data = await self.client.get_vpn_connections(device_ids[:10])
-            wlan_data = await self.client.get_wlan_stations(device_ids[:10])
+            wan_data, vpn_data, wlan_data, config_states = await asyncio.gather(
+                self.client.get_wan_interfaces(device_ids[:10]),
+                self.client.get_vpn_connections(device_ids[:10]),
+                self.client.get_wlan_stations(device_ids[:10]),
+                self.client.get_device_config_states(device_ids),
+            )
 
             # Index monitoring data by deviceId for quick lookup
             wan_by_device: dict[str, dict] = {}
@@ -59,6 +63,7 @@ class LancomCoordinator(DataUpdateCoordinator):
                 "devices": {d["id"]: d for d in devices if "id" in d},
                 "statistics": statistics,
                 "last_sync": datetime.now(timezone.utc),
+                "config_states": config_states,
                 "wan": wan_by_device,
                 "vpn": vpn_by_device,
                 "wlan_clients": wlan_clients_by_device,

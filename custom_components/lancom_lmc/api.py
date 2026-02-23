@@ -1,6 +1,7 @@
 """LANCOM Management Cloud API client."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -77,6 +78,20 @@ class LancomApiClient:
         # Some API versions return {"devices": [...]}
         return result.get("devices", [result] if isinstance(result, dict) else [])
 
+    async def get_device_config_states(self, device_ids: list[str]) -> dict[str, dict]:
+        """Fetch config state for all devices concurrently. Returns {device_id: config_dict}."""
+        async def _fetch_one(device_id: str) -> tuple[str, dict]:
+            url = f"{DEVICES_BASE}/accounts/{self._account_id}/devices/{device_id}"
+            try:
+                result = await self._get(url)
+                return device_id, result.get("config", {})
+            except LancomApiError as err:
+                _LOGGER.debug("Could not fetch config state for %s: %s", device_id, err)
+                return device_id, {}
+
+        results = await asyncio.gather(*[_fetch_one(did) for did in device_ids])
+        return dict(results)
+
     async def get_device_statistics(self) -> dict:
         """Fetch account-level device statistics."""
         url = f"{DEVICES_BASE}/accounts/{self._account_id}/device_statistics"
@@ -130,6 +145,11 @@ class LancomApiClient:
     async def reboot_device(self, device_id: str) -> None:
         """Send reboot command to a device."""
         url = f"{DEVICES_BASE}/accounts/{self._account_id}/actions/reboot"
+        await self._post(url, {"deviceIds": [device_id]})
+
+    async def trigger_config_rollout(self, device_id: str) -> None:
+        """Trigger a config rollout for a device via the useragent service."""
+        url = f"{USERAGENT_BASE}/accounts/{self._account_id}/actions/config-rollout"
         await self._post(url, {"deviceIds": [device_id]})
 
     async def trigger_firmware_update(self, device_id: str) -> None:

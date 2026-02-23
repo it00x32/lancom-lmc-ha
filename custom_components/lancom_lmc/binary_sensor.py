@@ -27,6 +27,7 @@ async def async_setup_entry(
         entities.append(LancomDeviceOnlineSensor(coordinator, device_id))
         entities.append(LancomDeviceAlertSensor(coordinator, device_id))
         entities.append(LancomFirmwareOutdatedSensor(coordinator, device_id))
+        entities.append(LancomConfigOutdatedSensor(coordinator, device_id))
     async_add_entities(entities)
 
 
@@ -121,6 +122,46 @@ class LancomFirmwareOutdatedSensor(CoordinatorEntity[LancomCoordinator], BinaryS
     @property
     def is_on(self) -> bool:
         return self._device.get("firmwareState", "").upper() == "OBSOLETE"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        status = self._device.get("status", {})
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._device_id)},
+            name=status.get("name", self._device_id),
+            manufacturer=MANUFACTURER,
+            model=status.get("model"),
+            sw_version=status.get("fwLabel"),
+            serial_number=status.get("serial"),
+        )
+
+
+class LancomConfigOutdatedSensor(CoordinatorEntity[LancomCoordinator], BinarySensorEntity):
+    """Binary sensor indicating whether a device's config is outdated."""
+
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_has_entity_name = True
+    _attr_name = "Config Outdated"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: LancomCoordinator, device_id: str) -> None:
+        super().__init__(coordinator)
+        self._device_id = device_id
+        self._attr_unique_id = f"{device_id}_config_outdated"
+
+    @property
+    def _device(self) -> dict:
+        return self.coordinator.data["devices"].get(self._device_id, {})
+
+    @property
+    def is_on(self) -> bool:
+        config = self.coordinator.data["config_states"].get(self._device_id, {})
+        return config.get("category", "").upper() == "OUTDATED"
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        config = self.coordinator.data["config_states"].get(self._device_id, {})
+        return {"config_state": config.get("state")} if config.get("state") else {}
 
     @property
     def device_info(self) -> DeviceInfo:
