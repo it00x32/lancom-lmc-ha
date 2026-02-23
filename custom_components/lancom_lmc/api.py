@@ -48,10 +48,14 @@ class LancomApiClient:
                     raise LancomApiError(f"API error {resp.status}: {await resp.text()}")
 
                 text = await resp.text()
-                # Handle newline-delimited JSON (streaming endpoints)
-                if "\n" in text.strip():
-                    return [json.loads(line) for line in text.strip().splitlines() if line.strip()]
-                return json.loads(text)
+                if not text.strip():
+                    return []
+                # Try regular JSON first; fall back to NDJSON (newline-delimited)
+                try:
+                    return json.loads(text)
+                except json.JSONDecodeError:
+                    lines = [l for l in text.strip().splitlines() if l.strip()]
+                    return [json.loads(line) for line in lines]
         except aiohttp.ClientError as err:
             raise LancomApiError(f"Connection error: {err}") from err
 
@@ -142,18 +146,15 @@ class LancomApiClient:
             _LOGGER.debug("WAN interface data unavailable: %s", err)
             return []
 
-    async def get_wlan_stations(self, device_ids: list[str] | None = None) -> list[dict]:
-        """Fetch connected WLAN clients from monitoring."""
+    async def get_wlan_stations(self) -> list[dict]:
+        """Fetch currently connected WLAN clients from monitoring (all devices)."""
         url = f"{MONITORING_BASE}/api/{self._account_id}/tables/wlan-station"
-        params: dict = {}
-        if device_ids:
-            params["deviceId"] = device_ids[:10]
         try:
-            result = await self._get(url, params=params)
-            if isinstance(result, dict):
-                return result.get("data", [])
-            return result if isinstance(result, list) else []
-        except LancomApiError as err:
+            result = await self._get(url)
+            rows: list[dict] = result.get("data", []) if isinstance(result, dict) else (result if isinstance(result, list) else [])
+            # Only count stations that are currently active/connected
+            return [r for r in rows if r.get("active") is True]
+        except Exception as err:
             _LOGGER.debug("WLAN station data unavailable: %s", err)
             return []
 

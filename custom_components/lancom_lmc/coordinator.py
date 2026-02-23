@@ -36,7 +36,7 @@ class LancomCoordinator(DataUpdateCoordinator):
             wan_data, vpn_data, wlan_data, config_states = await asyncio.gather(
                 self.client.get_wan_interfaces(device_ids[:10]),
                 self.client.get_vpn_connections(device_ids[:10]),
-                self.client.get_wlan_stations(device_ids[:10]),
+                self.client.get_wlan_stations(),
                 self.client.get_device_config_states(device_ids),
             )
 
