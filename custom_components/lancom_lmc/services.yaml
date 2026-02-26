@@ -1,0 +1,11 @@
+reboot_device:
+  name: Reboot Device
+  description: Sends a reboot command to a LANCOM device via the LMC API.
+  fields:
+    device_id:
+      name: Device ID
+      description: The LMC device ID (UUID) of the device to reboot.
+      required: true
+      example: "8df2b03d-f6aa-48d1-a600-1c4a9000ed9e"
+      selector:
+        text:
