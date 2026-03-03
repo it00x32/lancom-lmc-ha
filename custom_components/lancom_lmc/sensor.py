@@ -279,15 +279,30 @@ class LancomWanSensor(CoordinatorEntity[LancomCoordinator], SensorEntity):
     def _device(self) -> dict:
         return self.coordinator.data["devices"].get(self._device_id, {})
 
+    _WAN_STATE_MAP = {
+        "ewanit":            "connected",
+        "ewanconnect":       "connected",
+        "ewanconnecting":    "connecting",
+        "ewandisconnecting": "disconnecting",
+        "ewandisconnected":  "disconnected",
+        "ewanidle":          "idle",
+    }
+
     @property
     def native_value(self) -> str | None:
         wan = self.coordinator.data["wan"].get(self._device_id, {})
-        return wan.get("logicalState") or wan.get("state") or wan.get("connectionState")
+        raw = wan.get("logicalState") or wan.get("state") or wan.get("connectionState")
+        if not raw:
+            return None
+        return self._WAN_STATE_MAP.get(raw.lower().replace("_", ""), raw)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         wan = self.coordinator.data["wan"].get(self._device_id, {})
         attrs: dict[str, Any] = {}
+        raw = wan.get("logicalState") or wan.get("state") or wan.get("connectionState")
+        if raw:
+            attrs["raw_state"] = raw
         for src, dst in (
             ("ipV4", "ip_address"),
             ("ipV4GatewayIp", "gateway"),
