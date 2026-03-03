@@ -30,10 +30,11 @@ class LancomApiClient:
         self._account_id = account_id
         self._session = session
         _base = f"https://{domain.strip().rstrip('/')}"
-        self._devices_base   = f"{_base}/cloud-service-devices"
-        self._monitoring_base = f"{_base}/cloud-service-monitoring"
-        self._config_base    = f"{_base}/cloud-service-config"
-        self._auth_base      = f"{_base}/cloud-service-auth"
+        self._devices_base          = f"{_base}/cloud-service-devices"
+        self._monitoring_base       = f"{_base}/cloud-service-monitoring"
+        self._monitor_frontend_base = f"{_base}/cloud-service-monitor-frontend"
+        self._config_base           = f"{_base}/cloud-service-config"
+        self._auth_base             = f"{_base}/cloud-service-auth"
 
     @property
     def _headers(self) -> dict[str, str]:
@@ -146,20 +147,24 @@ class LancomApiClient:
         return await self._get(url)
 
     async def get_wan_interfaces(self, device_ids: list[str] | None = None) -> list[dict]:
-        """Fetch WAN interface data from monitoring."""
-        url = f"{self._monitoring_base}/api/{self._account_id}/tables/wan-interface"
+        """Fetch WAN interface data from monitor-frontend (batched, max 10 per request)."""
+        url = f"{self._monitor_frontend_base}/api/{self._account_id}/tables/wan-interface"
         from_ts = (datetime.now(timezone.utc) - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        params: dict = {"from": from_ts, "sort": "timeMs", "order": "desc"}
-        if device_ids:
-            params["deviceId"] = device_ids
-        try:
-            result = await self._get(url, params=params)
-            if isinstance(result, dict):
-                return result.get("data", [])
-            return result if isinstance(result, list) else []
-        except LancomApiError as err:
-            _LOGGER.debug("WAN interface data unavailable: %s", err)
-            return []
+        ids = device_ids or []
+        batches = [ids[i:i+10] for i in range(0, len(ids), 10)] if ids else [None]
+        all_rows: list[dict] = []
+        for batch in batches:
+            params: dict = {"from": from_ts, "sort": "timeMs", "order": "desc"}
+            if batch:
+                params["deviceId"] = batch
+            try:
+                result = await self._get(url, params=params)
+                rows = result.get("data", []) if isinstance(result, dict) else (result if isinstance(result, list) else [])
+                all_rows.extend(rows)
+                _LOGGER.debug("WAN batch (%s devices) → %d rows", len(batch) if batch else "all", len(rows))
+            except LancomApiError as err:
+                _LOGGER.warning("WAN interface data unavailable: %s", err)
+        return all_rows
 
     async def get_wlan_counts(self, device_ids: list[str]) -> dict[str, int]:
         """Fetch connected WLAN client counts per device using the records endpoint."""
@@ -197,19 +202,23 @@ class LancomApiClient:
         return 0
 
     async def get_vpn_connections(self, device_ids: list[str] | None = None) -> list[dict]:
-        """Fetch VPN connection data from monitoring."""
-        url = f"{self._monitoring_base}/api/{self._account_id}/tables/vpn-connection"
-        params: dict = {}
-        if device_ids:
-            params["deviceId"] = device_ids[:10]
-        try:
-            result = await self._get(url, params=params)
-            if isinstance(result, dict):
-                return result.get("data", [])
-            return result if isinstance(result, list) else []
-        except LancomApiError as err:
-            _LOGGER.debug("VPN connection data unavailable: %s", err)
-            return []
+        """Fetch VPN connection data from monitor-frontend (batched, max 10 per request)."""
+        url = f"{self._monitor_frontend_base}/api/{self._account_id}/tables/vpn-connection"
+        from_ts = (datetime.now(timezone.utc) - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        ids = device_ids or []
+        batches = [ids[i:i+10] for i in range(0, len(ids), 10)] if ids else [None]
+        all_rows: list[dict] = []
+        for batch in batches:
+            params: dict = {"from": from_ts}
+            if batch:
+                params["deviceId"] = batch
+            try:
+                result = await self._get(url, params=params)
+                rows = result.get("data", []) if isinstance(result, dict) else (result if isinstance(result, list) else [])
+                all_rows.extend(rows)
+            except LancomApiError as err:
+                _LOGGER.warning("VPN connection data unavailable: %s", err)
+        return all_rows
 
     async def reboot_device(self, device_id: str) -> None:
         """Send reboot command to a device."""
