@@ -282,15 +282,27 @@ class LancomWanSensor(CoordinatorEntity[LancomCoordinator], SensorEntity):
     @property
     def native_value(self) -> str | None:
         wan = self.coordinator.data["wan"].get(self._device_id, {})
-        return wan.get("state") or wan.get("status") or wan.get("connectionState")
+        return wan.get("logicalState") or wan.get("state") or wan.get("connectionState")
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         wan = self.coordinator.data["wan"].get(self._device_id, {})
         attrs: dict[str, Any] = {}
-        for key in ("ipAddress", "gateway", "provider", "type", "rxBytes", "txBytes"):
-            if key in wan:
-                attrs[key] = wan[key]
+        for src, dst in (
+            ("ipV4", "ip_address"),
+            ("ipV4GatewayIp", "gateway"),
+            ("connectionType", "connection_type"),
+            ("physicalState", "physical_state"),
+            ("rxDeltaBytes", "rx_bytes"),
+            ("txDeltaBytes", "tx_bytes"),
+            ("mobileModemNetwork", "mobile_network"),
+            ("mobileModemMode", "mobile_mode"),
+            ("mobileModemSignalDecibelMw", "mobile_signal_dbm"),
+            ("backupInActiveUse", "backup_active"),
+            ("name", "interface_name"),
+        ):
+            if wan.get(src) is not None:
+                attrs[dst] = wan[src]
         vpn_list = self.coordinator.data["vpn"].get(self._device_id, [])
         attrs["vpn_tunnels"] = len(vpn_list)
         return attrs

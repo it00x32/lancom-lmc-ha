@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import aiohttp
@@ -147,9 +148,10 @@ class LancomApiClient:
     async def get_wan_interfaces(self, device_ids: list[str] | None = None) -> list[dict]:
         """Fetch WAN interface data from monitoring."""
         url = f"{self._monitoring_base}/api/{self._account_id}/tables/wan-interface"
-        params: dict = {}
+        from_ts = (datetime.now(timezone.utc) - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        params: dict = {"from": from_ts, "sort": "timeMs", "order": "desc"}
         if device_ids:
-            params["deviceId"] = device_ids[:10]
+            params["deviceId"] = device_ids
         try:
             result = await self._get(url, params=params)
             if isinstance(result, dict):

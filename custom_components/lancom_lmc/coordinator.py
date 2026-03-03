@@ -35,18 +35,29 @@ class LancomCoordinator(DataUpdateCoordinator):
 
             device_ids = [d["id"] for d in devices if "id" in d]
             wan_data, vpn_data, wlan_clients_by_device, config_states = await asyncio.gather(
-                self.client.get_wan_interfaces(device_ids[:10]),
+                self.client.get_wan_interfaces(device_ids),
                 self.client.get_vpn_connections(device_ids[:10]),
                 self.client.get_wlan_counts(device_ids),
                 self.client.get_device_config_states(device_ids),
             )
 
-            # Index monitoring data by deviceId for quick lookup
+            # Index WAN data by deviceId – prefer active/primary interface, then most recent
             wan_by_device: dict[str, dict] = {}
             for entry in wan_data:
                 did = entry.get("deviceId")
-                if did:
-                    wan_by_device.setdefault(did, entry)
+                if not did:
+                    continue
+                existing = wan_by_device.get(did)
+                if existing is None:
+                    wan_by_device[did] = entry
+                else:
+                    # Prefer entry with an active logicalState over a disconnected one
+                    state = (entry.get("logicalState") or "").lower()
+                    existing_state = (existing.get("logicalState") or "").lower()
+                    is_active = "disconnect" not in state and "idle" not in state and state != ""
+                    existing_active = "disconnect" not in existing_state and "idle" not in existing_state and existing_state != ""
+                    if is_active and not existing_active:
+                        wan_by_device[did] = entry
 
             vpn_by_device: dict[str, list] = {}
             for entry in vpn_data:
