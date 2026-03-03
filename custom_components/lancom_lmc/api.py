@@ -150,11 +150,17 @@ class LancomApiClient:
         """Fetch WAN interface data from monitor-frontend (batched, max 10 per request)."""
         url = f"{self._monitor_frontend_base}/api/{self._account_id}/tables/wan-interface"
         from_ts = (datetime.now(timezone.utc) - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        columns = [
+            "deviceId", "timeMs", "name", "logicalState", "physicalState", "connectionType",
+            "ipV4", "ipV4GatewayIp", "rxDeltaBytes", "txDeltaBytes",
+            "mobileModemSignalDecibelMw", "mobileModemNetwork", "mobileModemMode",
+            "backupInActiveUse", "isErrorInterface",
+        ]
         ids = device_ids or []
         batches = [ids[i:i+10] for i in range(0, len(ids), 10)] if ids else [None]
         all_rows: list[dict] = []
         for batch in batches:
-            params: dict = {"from": from_ts, "sort": "timeMs", "order": "desc"}
+            params: dict = {"from": from_ts, "sort": "timeMs", "order": "desc", "column": columns}
             if batch:
                 params["deviceId"] = batch
             try:
@@ -205,11 +211,12 @@ class LancomApiClient:
         """Fetch VPN connection data from monitor-frontend (batched, max 10 per request)."""
         url = f"{self._monitor_frontend_base}/api/{self._account_id}/tables/vpn-connection"
         from_ts = (datetime.now(timezone.utc) - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        columns = ["deviceId", "timeMs", "peerName", "active", "role", "rxDeltaBytes", "txDeltaBytes", "packetLossPercent", "rttAvgUs"]
         ids = device_ids or []
         batches = [ids[i:i+10] for i in range(0, len(ids), 10)] if ids else [None]
         all_rows: list[dict] = []
         for batch in batches:
-            params: dict = {"from": from_ts}
+            params: dict = {"from": from_ts, "column": columns}
             if batch:
                 params["deviceId"] = batch
             try:
