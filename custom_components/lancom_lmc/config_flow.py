@@ -24,7 +24,9 @@ from .const import (
     CONF_UPDATE_INTERVAL,
     CONF_BETA_FIRMWARE,
     CONF_NAME,
+    CONF_DOMAIN,
     DEFAULT_UPDATE_INTERVAL,
+    DEFAULT_DOMAIN,
     MIN_UPDATE_INTERVAL,
     MAX_UPDATE_INTERVAL,
 )
@@ -39,6 +41,7 @@ class LancomConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         self._api_key: str = ""
+        self._domain: str = DEFAULT_DOMAIN
         self._accounts: list[dict] = []
         self._update_interval: int = DEFAULT_UPDATE_INTERVAL
 
@@ -50,12 +53,13 @@ class LancomConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             self._api_key = user_input[CONF_API_KEY].strip()
+            self._domain = user_input[CONF_DOMAIN].strip().rstrip("/")
             self._update_interval = user_input[CONF_UPDATE_INTERVAL]
 
             session = async_get_clientsession(self.hass)
             try:
                 self._accounts = await LancomApiClient.get_available_accounts(
-                    self._api_key, session
+                    self._api_key, session, self._domain
                 )
             except LancomAuthError:
                 errors["base"] = "invalid_auth"
@@ -77,6 +81,7 @@ class LancomConfigFlow(ConfigFlow, domain=DOMAIN):
         schema = vol.Schema(
             {
                 vol.Required(CONF_API_KEY): str,
+                vol.Required(CONF_DOMAIN, default=DEFAULT_DOMAIN): str,
                 vol.Required(
                     CONF_UPDATE_INTERVAL, default=DEFAULT_UPDATE_INTERVAL
                 ): vol.All(int, vol.Range(min=MIN_UPDATE_INTERVAL, max=MAX_UPDATE_INTERVAL)),
@@ -132,6 +137,7 @@ class LancomConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_API_KEY: self._api_key,
                 CONF_ACCOUNT_ID: account_id,
                 CONF_NAME: name,
+                CONF_DOMAIN: self._domain,
             },
             options={
                 CONF_UPDATE_INTERVAL: self._update_interval,

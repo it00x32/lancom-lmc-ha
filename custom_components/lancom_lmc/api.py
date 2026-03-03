@@ -8,7 +8,7 @@ from typing import Any
 
 import aiohttp
 
-from .const import AUTH_BASE, CONFIG_BASE, DEVICES_BASE, MONITORING_BASE, USERAGENT_BASE
+from .const import DEFAULT_DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,10 +24,15 @@ class LancomAuthError(LancomApiError):
 class LancomApiClient:
     """Client for the LANCOM Management Cloud API."""
 
-    def __init__(self, api_key: str, account_id: str, session: aiohttp.ClientSession) -> None:
+    def __init__(self, api_key: str, account_id: str, session: aiohttp.ClientSession, domain: str = DEFAULT_DOMAIN) -> None:
         self._api_key = api_key
         self._account_id = account_id
         self._session = session
+        _base = f"https://{domain.strip().rstrip('/')}"
+        self._devices_base   = f"{_base}/cloud-service-devices"
+        self._monitoring_base = f"{_base}/cloud-service-monitoring"
+        self._config_base    = f"{_base}/cloud-service-config"
+        self._auth_base      = f"{_base}/cloud-service-auth"
 
     @property
     def _headers(self) -> dict[str, str]:
@@ -81,9 +86,10 @@ class LancomApiClient:
             raise LancomApiError(f"Connection error: {err}") from err
 
     @staticmethod
-    async def get_available_accounts(api_key: str, session: aiohttp.ClientSession) -> list[dict]:
+    async def get_available_accounts(api_key: str, session: aiohttp.ClientSession, domain: str = DEFAULT_DOMAIN) -> list[dict]:
         """Fetch all accounts accessible with this API key via auth service. Returns list of {id, name, ...}."""
-        url = f"{AUTH_BASE}/accounts"
+        auth_base = f"https://{domain.strip().rstrip('/')}/cloud-service-auth"
+        url = f"{auth_base}/accounts"
         headers = {"Authorization": f"LMC-API-KEY {api_key}", "Accept": "application/json"}
         try:
             async with session.get(url, headers=headers) as resp:
@@ -96,9 +102,10 @@ class LancomApiClient:
             raise LancomApiError(f"Connection error: {err}") from err
 
     @staticmethod
-    async def get_account_name(api_key: str, account_id: str, session: aiohttp.ClientSession) -> str:
+    async def get_account_name(api_key: str, account_id: str, session: aiohttp.ClientSession, domain: str = DEFAULT_DOMAIN) -> str:
         """Fetch the account display name from the auth service. Falls back to account_id."""
-        url = f"{AUTH_BASE}/accounts/{account_id}"
+        auth_base = f"https://{domain.strip().rstrip('/')}/cloud-service-auth"
+        url = f"{auth_base}/accounts/{account_id}"
         headers = {"Authorization": f"LMC-API-KEY {api_key}", "Accept": "application/json"}
         try:
             async with session.get(url, headers=headers) as resp:
@@ -111,7 +118,7 @@ class LancomApiClient:
 
     async def get_devices(self) -> list[dict]:
         """Fetch all devices for the account."""
-        url = f"{DEVICES_BASE}/accounts/{self._account_id}/devices"
+        url = f"{self._devices_base}/accounts/{self._account_id}/devices"
         result = await self._get(url)
         if isinstance(result, list):
             return result
@@ -121,7 +128,7 @@ class LancomApiClient:
     async def get_device_config_states(self, device_ids: list[str]) -> dict[str, dict]:
         """Fetch config state for all devices concurrently. Returns {device_id: config_dict}."""
         async def _fetch_one(device_id: str) -> tuple[str, dict]:
-            url = f"{DEVICES_BASE}/accounts/{self._account_id}/devices/{device_id}"
+            url = f"{self._devices_base}/accounts/{self._account_id}/devices/{device_id}"
             try:
                 result = await self._get(url)
                 return device_id, result.get("config", {})
@@ -134,12 +141,12 @@ class LancomApiClient:
 
     async def get_device_statistics(self) -> dict:
         """Fetch account-level device statistics."""
-        url = f"{DEVICES_BASE}/accounts/{self._account_id}/device_statistics"
+        url = f"{self._devices_base}/accounts/{self._account_id}/device_statistics"
         return await self._get(url)
 
     async def get_wan_interfaces(self, device_ids: list[str] | None = None) -> list[dict]:
         """Fetch WAN interface data from monitoring."""
-        url = f"{MONITORING_BASE}/api/{self._account_id}/tables/wan-interface"
+        url = f"{self._monitoring_base}/api/{self._account_id}/tables/wan-interface"
         params: dict = {}
         if device_ids:
             params["deviceId"] = device_ids[:10]
@@ -156,7 +163,7 @@ class LancomApiClient:
         """Fetch connected WLAN client counts per device using the records endpoint."""
         async def _fetch_one(device_id: str) -> tuple[str, int]:
             url = (
-                f"{MONITORING_BASE}/accounts/{self._account_id}/records/wlan_info_json"
+                f"{self._monitoring_base}/accounts/{self._account_id}/records/wlan_info_json"
                 f"?group=DEVICE&groupId={device_id}&period=MINUTE1&type=json&name=stations&latest=1"
             )
             try:
@@ -189,7 +196,7 @@ class LancomApiClient:
 
     async def get_vpn_connections(self, device_ids: list[str] | None = None) -> list[dict]:
         """Fetch VPN connection data from monitoring."""
-        url = f"{MONITORING_BASE}/api/{self._account_id}/tables/vpn-connection"
+        url = f"{self._monitoring_base}/api/{self._account_id}/tables/vpn-connection"
         params: dict = {}
         if device_ids:
             params["deviceId"] = device_ids[:10]
@@ -204,13 +211,13 @@ class LancomApiClient:
 
     async def reboot_device(self, device_id: str) -> None:
         """Send reboot command to a device."""
-        url = f"{DEVICES_BASE}/accounts/{self._account_id}/actions/reboot"
+        url = f"{self._devices_base}/accounts/{self._account_id}/actions/reboot"
         await self._post(url, [device_id])
 
     async def trigger_config_rollout(self, device_id: str) -> None:
         """Trigger a config rollout for a single device via cloud-service-config."""
         url = (
-            f"{CONFIG_BASE}/configdevice/accounts/{self._account_id}"
+            f"{self._config_base}/configdevice/accounts/{self._account_id}"
             f"/devices/{device_id}/rollout"
             "?forceRollout=false&addDependentCentralSites=false"
         )
@@ -222,7 +229,7 @@ class LancomApiClient:
         With beta=False (default) the stable recommended firmware is used.
         With beta=True the latest available firmware (may be a pre-release) is used.
         """
-        fw_url = f"{DEVICES_BASE}/accounts/{self._account_id}/firmware/update"
+        fw_url = f"{self._devices_base}/accounts/{self._account_id}/firmware/update"
         firmware_data = await self._get(fw_url, params={"deviceIds": [device_id]})
         device_firmware = firmware_data.get(device_id, {}) if isinstance(firmware_data, dict) else {}
         if beta:
@@ -235,6 +242,6 @@ class LancomApiClient:
 
     async def validate(self) -> bool:
         """Validate credentials by fetching device IDs."""
-        url = f"{DEVICES_BASE}/accounts/{self._account_id}/devices/ids"
+        url = f"{self._devices_base}/accounts/{self._account_id}/devices/ids"
         await self._get(url)
         return True
