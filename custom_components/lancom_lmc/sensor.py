@@ -280,7 +280,7 @@ class LancomWanSensor(CoordinatorEntity[LancomCoordinator], SensorEntity):
         return self.coordinator.data["devices"].get(self._device_id, {})
 
     _WAN_STATE_MAP = {
-        "ewanit":            "connected",
+        "ewaninit":          "connected",
         "ewanconnect":       "connected",
         "ewanconnecting":    "connecting",
         "ewandisconnecting": "disconnecting",
