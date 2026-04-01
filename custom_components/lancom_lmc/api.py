@@ -35,6 +35,7 @@ class LancomApiClient:
         self._monitor_frontend_base = f"{_base}/cloud-service-monitor-frontend"
         self._config_base           = f"{_base}/cloud-service-config"
         self._auth_base             = f"{_base}/cloud-service-auth"
+        self._licenses_base         = f"{_base}/cloud-service-licenses"
 
     @property
     def _headers(self) -> dict[str, str]:
@@ -226,6 +227,38 @@ class LancomApiClient:
             except LancomApiError as err:
                 _LOGGER.warning("VPN connection data unavailable: %s", err)
         return all_rows
+
+    async def get_device_info(self, device_ids: list[str] | None = None) -> list[dict]:
+        """Fetch device-info (CPU, memory, temperature) from monitor-frontend (batched)."""
+        url = f"{self._monitor_frontend_base}/api/{self._account_id}/tables/device-info"
+        from_ts = (datetime.now(timezone.utc) - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        columns = ["deviceId", "timeMs", "cpuLoadPercent", "memoryUtilizationPercent", "temperature"]
+        ids = device_ids or []
+        batches = [ids[i:i+10] for i in range(0, len(ids), 10)] if ids else [None]
+        all_rows: list[dict] = []
+        for batch in batches:
+            params: dict = {"from": from_ts, "sort": "timeMs", "order": "desc", "column": columns}
+            if batch:
+                params["deviceId"] = batch
+            try:
+                result = await self._get(url, params=params)
+                rows = result.get("data", []) if isinstance(result, dict) else (result if isinstance(result, list) else [])
+                all_rows.extend(rows)
+            except LancomApiError as err:
+                _LOGGER.warning("Device info data unavailable: %s", err)
+        return all_rows
+
+    async def get_license_pools(self) -> list[dict]:
+        """Fetch license pools for the account."""
+        url = f"{self._licenses_base}/accounts/{self._account_id}/pools"
+        try:
+            result = await self._get(url)
+            if isinstance(result, list):
+                return result
+            return result.get("pools", [result] if isinstance(result, dict) else [])
+        except LancomApiError as err:
+            _LOGGER.warning("License pools unavailable: %s", err)
+            return []
 
     async def reboot_device(self, device_id: str) -> None:
         """Send reboot command to a device."""

@@ -34,11 +34,13 @@ class LancomCoordinator(DataUpdateCoordinator):
             statistics = await self.client.get_device_statistics()
 
             device_ids = [d["id"] for d in devices if "id" in d]
-            wan_data, vpn_data, wlan_clients_by_device, config_states = await asyncio.gather(
+            wan_data, vpn_data, wlan_clients_by_device, config_states, device_info_data, license_pools = await asyncio.gather(
                 self.client.get_wan_interfaces(device_ids),
                 self.client.get_vpn_connections(device_ids[:10]),
                 self.client.get_wlan_counts(device_ids),
                 self.client.get_device_config_states(device_ids),
+                self.client.get_device_info(device_ids),
+                self.client.get_license_pools(),
             )
 
             # Index WAN data by deviceId – prefer active/primary interface, then most recent
@@ -65,6 +67,16 @@ class LancomCoordinator(DataUpdateCoordinator):
                 if did:
                     vpn_by_device.setdefault(did, []).append(entry)
 
+            # Index device-info by deviceId — keep most recent row per device
+            hw_by_device: dict[str, dict] = {}
+            for entry in device_info_data:
+                did = entry.get("deviceId")
+                if not did:
+                    continue
+                existing = hw_by_device.get(did)
+                if existing is None or (entry.get("timeMs") or 0) > (existing.get("timeMs") or 0):
+                    hw_by_device[did] = entry
+
             return {
                 "devices": {d["id"]: d for d in devices if "id" in d},
                 "statistics": statistics,
@@ -73,6 +85,8 @@ class LancomCoordinator(DataUpdateCoordinator):
                 "wan": wan_by_device,
                 "vpn": vpn_by_device,
                 "wlan_clients": wlan_clients_by_device,
+                "device_hw": hw_by_device,
+                "licenses": license_pools,
             }
         except LancomApiError as err:
             raise UpdateFailed(f"LMC API error: {err}") from err

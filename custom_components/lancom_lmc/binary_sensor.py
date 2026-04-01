@@ -28,6 +28,8 @@ async def async_setup_entry(
         entities.append(LancomDeviceAlertSensor(coordinator, device_id))
         entities.append(LancomFirmwareOutdatedSensor(coordinator, device_id))
         entities.append(LancomConfigOutdatedSensor(coordinator, device_id))
+        entities.append(LancomWarrantyExpiredSensor(coordinator, device_id))
+        entities.append(LancomEndOfLifeSensor(coordinator, device_id))
     async_add_entities(entities)
 
 
@@ -162,6 +164,80 @@ class LancomConfigOutdatedSensor(CoordinatorEntity[LancomCoordinator], BinarySen
     def extra_state_attributes(self) -> dict:
         config = self.coordinator.data["config_states"].get(self._device_id, {})
         return {"config_state": config.get("state")} if config.get("state") else {}
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        status = self._device.get("status", {})
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._device_id)},
+            name=status.get("name", self._device_id),
+            manufacturer=MANUFACTURER,
+            model=status.get("model"),
+            sw_version=status.get("fwLabel"),
+            serial_number=status.get("serial"),
+        )
+
+
+class LancomWarrantyExpiredSensor(CoordinatorEntity[LancomCoordinator], BinarySensorEntity):
+    """Binary sensor indicating whether a device's warranty has expired."""
+
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_has_entity_name = True
+    _attr_name = "Warranty Expired"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: LancomCoordinator, device_id: str) -> None:
+        super().__init__(coordinator)
+        self._device_id = device_id
+        self._attr_unique_id = f"{device_id}_warranty_expired"
+
+    @property
+    def _device(self) -> dict:
+        return self.coordinator.data["devices"].get(self._device_id, {})
+
+    @property
+    def is_on(self) -> bool:
+        return self._device.get("warrantyState", "").upper() == "EXPIRED"
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        status = self._device.get("status", {})
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._device_id)},
+            name=status.get("name", self._device_id),
+            manufacturer=MANUFACTURER,
+            model=status.get("model"),
+            sw_version=status.get("fwLabel"),
+            serial_number=status.get("serial"),
+        )
+
+
+class LancomEndOfLifeSensor(CoordinatorEntity[LancomCoordinator], BinarySensorEntity):
+    """Binary sensor indicating whether a device has reached End of Life / End of Sale."""
+
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_has_entity_name = True
+    _attr_name = "End of Life"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: LancomCoordinator, device_id: str) -> None:
+        super().__init__(coordinator)
+        self._device_id = device_id
+        self._attr_unique_id = f"{device_id}_end_of_life"
+
+    @property
+    def _device(self) -> dict:
+        return self.coordinator.data["devices"].get(self._device_id, {})
+
+    @property
+    def is_on(self) -> bool:
+        lifecycle = self._device.get("status", {}).get("lifecycle", {}).get("status", "")
+        return lifecycle.upper() in ("EOL", "EOS")
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        lifecycle = self._device.get("status", {}).get("lifecycle", {})
+        return {"lifecycle_status": lifecycle.get("status")} if lifecycle.get("status") else {}
 
     @property
     def device_info(self) -> DeviceInfo:

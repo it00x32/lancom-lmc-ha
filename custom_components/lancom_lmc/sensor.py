@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
@@ -119,6 +119,52 @@ DEVICE_SENSORS: tuple[DeviceSensorDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         device_key="status.lifecycle.status",
     ),
+    DeviceSensorDescription(
+        key="warranty",
+        name="Warranty",
+        icon="mdi:shield-check",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        device_key="warrantyState",
+    ),
+)
+
+
+# ── Per-device hardware sensors (from device-info table) ─────────────────────
+
+@dataclass(frozen=True)
+class HwSensorDescription(SensorEntityDescription):
+    hw_key: str = ""
+
+
+HW_SENSORS: tuple[HwSensorDescription, ...] = (
+    HwSensorDescription(
+        key="cpu_load",
+        name="CPU Load",
+        icon="mdi:cpu-64-bit",
+        native_unit_of_measurement="%",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        hw_key="cpuLoadPercent",
+    ),
+    HwSensorDescription(
+        key="memory_usage",
+        name="Memory Usage",
+        icon="mdi:memory",
+        native_unit_of_measurement="%",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        hw_key="memoryUtilizationPercent",
+    ),
+    HwSensorDescription(
+        key="temperature",
+        name="Temperature",
+        icon="mdi:thermometer",
+        native_unit_of_measurement="°C",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        hw_key="temperature",
+    ),
 )
 
 
@@ -137,15 +183,16 @@ async def async_setup_entry(
     for desc in ACCOUNT_SENSORS:
         entities.append(LancomAccountSensor(coordinator, account_id, account_name, desc))
     entities.append(LancomLastSyncSensor(coordinator, account_id, account_name))
+    entities.append(LancomLicensePoolsSensor(coordinator, account_id, account_name))
 
     # Per-device sensors
     for device_id, device in coordinator.data["devices"].items():
         for desc in DEVICE_SENSORS:
             entities.append(LancomDeviceSensor(coordinator, device_id, desc))
+        for desc in HW_SENSORS:
+            entities.append(LancomHwSensor(coordinator, device_id, desc))
 
         entities.append(LancomWanSensor(coordinator, device_id))
-
-        # WLAN client sensor for all devices (routers with built-in WLAN also have clients)
         entities.append(LancomWlanClientSensor(coordinator, device_id))
 
     async_add_entities(entities)
@@ -366,4 +413,85 @@ class LancomWlanClientSensor(CoordinatorEntity[LancomCoordinator], SensorEntity)
             model=status.get("model"),
             sw_version=status.get("fwLabel"),
             serial_number=status.get("serial"),
+        )
+
+
+class LancomHwSensor(CoordinatorEntity[LancomCoordinator], SensorEntity):
+    """Sensor for device hardware metrics (CPU, memory, temperature)."""
+
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator: LancomCoordinator, device_id: str, description: HwSensorDescription) -> None:
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._device_id = device_id
+        self._attr_unique_id = f"{device_id}_{description.key}"
+
+    @property
+    def _device(self) -> dict:
+        return self.coordinator.data["devices"].get(self._device_id, {})
+
+    @property
+    def native_value(self) -> int | None:
+        hw = self.coordinator.data.get("device_hw", {}).get(self._device_id, {})
+        val = hw.get(self.entity_description.hw_key)
+        if val is None:
+            return None
+        return int(val)
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        status = self._device.get("status", {})
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._device_id)},
+            name=status.get("name", self._device_id),
+            manufacturer=MANUFACTURER,
+            model=status.get("model"),
+            sw_version=status.get("fwLabel"),
+            serial_number=status.get("serial"),
+        )
+
+
+class LancomLicensePoolsSensor(CoordinatorEntity[LancomCoordinator], SensorEntity):
+    """Sensor showing the number of license pools with details as attributes."""
+
+    _attr_has_entity_name = True
+    _attr_name = "License Pools"
+    _attr_icon = "mdi:license"
+
+    def __init__(self, coordinator: LancomCoordinator, account_id: str, account_name: str) -> None:
+        super().__init__(coordinator)
+        self._account_id = account_id
+        self._account_name = account_name
+        self._attr_unique_id = f"lmc_{account_id}_license_pools"
+
+    @property
+    def native_value(self) -> int:
+        pools = self.coordinator.data.get("licenses", [])
+        if isinstance(pools, list):
+            return len(pools)
+        return 0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        pools = self.coordinator.data.get("licenses", [])
+        if not isinstance(pools, list):
+            return {}
+        attrs: dict[str, Any] = {}
+        for i, pool in enumerate(pools):
+            if isinstance(pool, dict):
+                prefix = pool.get("name") or pool.get("type") or f"pool_{i}"
+                for k, v in pool.items():
+                    if k not in ("id",):
+                        attrs[f"{prefix}_{k}"] = v
+        attrs["raw_pools"] = pools
+        return attrs
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"account_{self._account_id}")},
+            name=self._account_name,
+            manufacturer=MANUFACTURER,
+            model="LANCOM Management Cloud",
         )
