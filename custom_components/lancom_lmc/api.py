@@ -231,8 +231,8 @@ class LancomApiClient:
     async def get_device_info(self, device_ids: list[str] | None = None) -> list[dict]:
         """Fetch device-info (CPU, memory, temperature) from monitor-frontend (batched)."""
         url = f"{self._monitor_frontend_base}/api/{self._account_id}/tables/device-info"
-        from_ts = (datetime.now(timezone.utc) - timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        columns = ["deviceId", "timeMs", "cpuLoadPercent", "memoryUtilizationPercent", "temperature"]
+        from_ts = (datetime.now(timezone.utc) - timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        columns = ["deviceId", "timeMs", "cpuLoadPercent", "temperature"]
         ids = device_ids or []
         batches = [ids[i:i+10] for i in range(0, len(ids), 10)] if ids else [None]
         all_rows: list[dict] = []

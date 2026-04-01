@@ -147,15 +147,6 @@ HW_SENSORS: tuple[HwSensorDescription, ...] = (
         hw_key="cpuLoadPercent",
     ),
     HwSensorDescription(
-        key="memory_usage",
-        name="Memory Usage",
-        icon="mdi:memory",
-        native_unit_of_measurement="%",
-        state_class=SensorStateClass.MEASUREMENT,
-        entity_category=EntityCategory.DIAGNOSTIC,
-        hw_key="memoryUtilizationPercent",
-    ),
-    HwSensorDescription(
         key="temperature",
         name="Temperature",
         icon="mdi:thermometer",
@@ -432,12 +423,15 @@ class LancomHwSensor(CoordinatorEntity[LancomCoordinator], SensorEntity):
         return self.coordinator.data["devices"].get(self._device_id, {})
 
     @property
-    def native_value(self) -> int | None:
+    def native_value(self) -> float | None:
         hw = self.coordinator.data.get("device_hw", {}).get(self._device_id, {})
         val = hw.get(self.entity_description.hw_key)
         if val is None:
             return None
-        return int(val)
+        try:
+            return round(float(val), 1)
+        except (ValueError, TypeError):
+            return None
 
     @property
     def device_info(self) -> DeviceInfo:

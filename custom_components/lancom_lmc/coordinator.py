@@ -77,6 +77,10 @@ class LancomCoordinator(DataUpdateCoordinator):
                 if existing is None or (entry.get("timeMs") or 0) > (existing.get("timeMs") or 0):
                     hw_by_device[did] = entry
 
+            _LOGGER.debug("device_hw indexed: %d devices, sample: %s",
+                          len(hw_by_device),
+                          next(iter(hw_by_device.values()), None))
+
             return {
                 "devices": {d["id"]: d for d in devices if "id" in d},
                 "statistics": statistics,

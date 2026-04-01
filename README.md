@@ -7,7 +7,7 @@ Integrates the [LANCOM Management Cloud (LMC)](https://cloud.lancom.de) into Hom
 
 ## Features
 
-- **Device monitoring** – online/offline status, alerts, CPU load, memory usage, temperature
+- **Device monitoring** – online/offline status, alerts, CPU load, temperature
 - **WAN status** – connection state, IP, gateway, traffic counters, mobile/LTE details
 - **VPN tunnels** – active VPN connection count per device
 - **WLAN clients** – connected wireless client count per device
@@ -72,7 +72,6 @@ After setup, configure these options via the integration's **Configure** button:
 | WAN Status | Sensor | WAN connection state with traffic attributes |
 | WLAN Clients | Sensor | Number of connected wireless clients |
 | CPU Load | Sensor | CPU utilization in % |
-| Memory Usage | Sensor | Memory utilization in % |
 | Temperature | Sensor | Device temperature in °C |
 
 ### Per Device – Buttons
